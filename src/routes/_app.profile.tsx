@@ -19,6 +19,30 @@ function ProfilePage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
 
+  const qc = useQueryClient();
+  const seedFn = useServerFn(seedDemo);
+  const clearFn = useServerFn(clearDemo);
+  const [busy, setBusy] = useState<"seed" | "clear" | null>(null);
+
+  const handleSeed = async () => {
+    setBusy("seed");
+    try {
+      await seedFn();
+      toast.success("Demo data added! Check the feed 🎯");
+      qc.invalidateQueries();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(null); }
+  };
+  const handleClear = async () => {
+    setBusy("clear");
+    try {
+      const res = await clearFn();
+      toast.success(`Removed ${res.removed} demo user(s) and their data`);
+      qc.invalidateQueries();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(null); }
+  };
+
   const { data: myAssignments } = useQuery({
     queryKey: ["my-assignments", user?.id, profile?.role],
     queryFn: async () => {
