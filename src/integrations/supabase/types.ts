@@ -14,7 +14,186 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assignments: {
+        Row: {
+          accepted_bid_id: string | null
+          budget_max: number
+          budget_min: number
+          created_at: string
+          deadline: string
+          description: string
+          id: string
+          status: Database["public"]["Enums"]["assignment_status"]
+          student_id: string
+          subject: string
+          title: string
+        }
+        Insert: {
+          accepted_bid_id?: string | null
+          budget_max: number
+          budget_min: number
+          created_at?: string
+          deadline: string
+          description: string
+          id?: string
+          status?: Database["public"]["Enums"]["assignment_status"]
+          student_id: string
+          subject: string
+          title: string
+        }
+        Update: {
+          accepted_bid_id?: string | null
+          budget_max?: number
+          budget_min?: number
+          created_at?: string
+          deadline?: string
+          description?: string
+          id?: string
+          status?: Database["public"]["Enums"]["assignment_status"]
+          student_id?: string
+          subject?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bids: {
+        Row: {
+          amount: number
+          assignment_id: string
+          created_at: string
+          id: string
+          message: string | null
+          status: Database["public"]["Enums"]["bid_status"]
+          writer_id: string
+        }
+        Insert: {
+          amount: number
+          assignment_id: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          status?: Database["public"]["Enums"]["bid_status"]
+          writer_id: string
+        }
+        Update: {
+          amount?: number
+          assignment_id?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          status?: Database["public"]["Enums"]["bid_status"]
+          writer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bids_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bids_writer_id_fkey"
+            columns: ["writer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          assignment_id: string
+          content: string
+          created_at: string
+          id: string
+          offer_amount: number | null
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          assignment_id: string
+          content: string
+          created_at?: string
+          id?: string
+          offer_amount?: number | null
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          assignment_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          offer_amount?: number | null
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string
+          id: string
+          jobs_completed: number
+          rating: number
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name: string
+          id: string
+          jobs_completed?: number
+          rating?: number
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          jobs_completed?: number
+          rating?: number
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +202,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      assignment_status: "open" | "in_progress" | "completed" | "cancelled"
+      bid_status: "pending" | "accepted" | "rejected" | "withdrawn"
+      user_role: "student" | "writer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +331,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      assignment_status: ["open", "in_progress", "completed", "cancelled"],
+      bid_status: ["pending", "accepted", "rejected", "withdrawn"],
+      user_role: ["student", "writer"],
+    },
   },
 } as const
