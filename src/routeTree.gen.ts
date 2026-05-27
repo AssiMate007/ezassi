@@ -9,38 +9,149 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppPostRouteImport } from './routes/_app.post'
+import { Route as AppFeedRouteImport } from './routes/_app.feed'
+import { Route as AppChatsRouteImport } from './routes/_app.chats'
+import { Route as AppAssignmentIdRouteImport } from './routes/_app.assignment.$id'
+import { Route as AppChatIdPeerRouteImport } from './routes/_app.chat.$id.$peer'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPostRoute = AppPostRouteImport.update({
+  id: '/post',
+  path: '/post',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFeedRoute = AppFeedRouteImport.update({
+  id: '/feed',
+  path: '/feed',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChatsRoute = AppChatsRouteImport.update({
+  id: '/chats',
+  path: '/chats',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAssignmentIdRoute = AppAssignmentIdRouteImport.update({
+  id: '/assignment/$id',
+  path: '/assignment/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChatIdPeerRoute = AppChatIdPeerRouteImport.update({
+  id: '/chat/$id/$peer',
+  path: '/chat/$id/$peer',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/chats': typeof AppChatsRoute
+  '/feed': typeof AppFeedRoute
+  '/post': typeof AppPostRoute
+  '/profile': typeof AppProfileRoute
+  '/assignment/$id': typeof AppAssignmentIdRoute
+  '/chat/$id/$peer': typeof AppChatIdPeerRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/chats': typeof AppChatsRoute
+  '/feed': typeof AppFeedRoute
+  '/post': typeof AppPostRoute
+  '/profile': typeof AppProfileRoute
+  '/assignment/$id': typeof AppAssignmentIdRoute
+  '/chat/$id/$peer': typeof AppChatIdPeerRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_app/chats': typeof AppChatsRoute
+  '/_app/feed': typeof AppFeedRoute
+  '/_app/post': typeof AppPostRoute
+  '/_app/profile': typeof AppProfileRoute
+  '/_app/assignment/$id': typeof AppAssignmentIdRoute
+  '/_app/chat/$id/$peer': typeof AppChatIdPeerRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/chats'
+    | '/feed'
+    | '/post'
+    | '/profile'
+    | '/assignment/$id'
+    | '/chat/$id/$peer'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/chats'
+    | '/feed'
+    | '/post'
+    | '/profile'
+    | '/assignment/$id'
+    | '/chat/$id/$peer'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/auth'
+    | '/_app/chats'
+    | '/_app/feed'
+    | '/_app/post'
+    | '/_app/profile'
+    | '/_app/assignment/$id'
+    | '/_app/chat/$id/$peer'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +159,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/post': {
+      id: '/_app/post'
+      path: '/post'
+      fullPath: '/post'
+      preLoaderRoute: typeof AppPostRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/feed': {
+      id: '/_app/feed'
+      path: '/feed'
+      fullPath: '/feed'
+      preLoaderRoute: typeof AppFeedRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/chats': {
+      id: '/_app/chats'
+      path: '/chats'
+      fullPath: '/chats'
+      preLoaderRoute: typeof AppChatsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/assignment/$id': {
+      id: '/_app/assignment/$id'
+      path: '/assignment/$id'
+      fullPath: '/assignment/$id'
+      preLoaderRoute: typeof AppAssignmentIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/chat/$id/$peer': {
+      id: '/_app/chat/$id/$peer'
+      path: '/chat/$id/$peer'
+      fullPath: '/chat/$id/$peer'
+      preLoaderRoute: typeof AppChatIdPeerRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppChatsRoute: typeof AppChatsRoute
+  AppFeedRoute: typeof AppFeedRoute
+  AppPostRoute: typeof AppPostRoute
+  AppProfileRoute: typeof AppProfileRoute
+  AppAssignmentIdRoute: typeof AppAssignmentIdRoute
+  AppChatIdPeerRoute: typeof AppChatIdPeerRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppChatsRoute: AppChatsRoute,
+  AppFeedRoute: AppFeedRoute,
+  AppPostRoute: AppPostRoute,
+  AppProfileRoute: AppProfileRoute,
+  AppAssignmentIdRoute: AppAssignmentIdRoute,
+  AppChatIdPeerRoute: AppChatIdPeerRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
