@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -12,38 +12,58 @@ export interface Profile {
   jobs_completed: number;
 }
 
+type AuthState = {
+  session: Session | null;
+  user: User | null;
+  profile: Profile | null;
+  loading: boolean;
+};
+
+let state: AuthState = { session: null, user: null, profile: null, loading: true };
+const listeners = new Set<() => void>();
+let initialized = false;
+let lastProfileFetchFor: string | null = null;
+
+function setState(next: Partial<AuthState>) {
+  state = { ...state, ...next };
+  listeners.forEach((l) => l());
+}
+
+function fetchProfile(userId: string) {
+  if (lastProfileFetchFor === userId) return;
+  lastProfileFetchFor = userId;
+  supabase.from("profiles").select("*").eq("id", userId).single()
+    .then(({ data }) => setState({ profile: (data as Profile | null) ?? null }));
+}
+
+function init() {
+  if (initialized || typeof window === "undefined") return;
+  initialized = true;
+
+  supabase.auth.onAuthStateChange((_e, s) => {
+    setState({ session: s, user: s?.user ?? null });
+    if (s?.user) {
+      fetchProfile(s.user.id);
+    } else {
+      lastProfileFetchFor = null;
+      setState({ profile: null });
+    }
+  });
+
+  supabase.auth.getSession().then(({ data: { session: s } }) => {
+    setState({ session: s, user: s?.user ?? null, loading: false });
+    if (s?.user) fetchProfile(s.user.id);
+  });
+}
+
+const subscribe = (cb: () => void) => {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+};
+const getSnapshot = () => state;
+const getServerSnapshot = () => state;
+
 export function useAuth() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        setTimeout(() => {
-          supabase.from("profiles").select("*").eq("id", s.user.id).single()
-            .then(({ data }) => setProfile(data as Profile | null));
-        }, 0);
-      } else {
-        setProfile(null);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        supabase.from("profiles").select("*").eq("id", s.user.id).single()
-          .then(({ data }) => setProfile(data as Profile | null));
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  return { session, user, profile, loading };
+  useEffect(init, []);
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
