@@ -1,15 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Star, LogOut, GraduationCap, PenLine, Sparkles, Trash2 } from "lucide-react";
+import { Star, LogOut, GraduationCap, PenLine } from "lucide-react";
 import { AssignmentCard } from "@/components/AssignmentCard";
-import { seedDemo, clearDemo } from "@/lib/demo.functions";
-import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
@@ -19,29 +16,7 @@ function ProfilePage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
 
-  const qc = useQueryClient();
-  const seedFn = useServerFn(seedDemo);
-  const clearFn = useServerFn(clearDemo);
-  const [busy, setBusy] = useState<"seed" | "clear" | null>(null);
 
-  const handleSeed = async () => {
-    setBusy("seed");
-    try {
-      await seedFn();
-      toast.success("Demo data added! Check the feed 🎯");
-      qc.invalidateQueries();
-    } catch (e) { toast.error((e as Error).message); }
-    finally { setBusy(null); }
-  };
-  const handleClear = async () => {
-    setBusy("clear");
-    try {
-      const res = await clearFn();
-      toast.success(`Removed ${res.removed} demo user(s) and their data`);
-      qc.invalidateQueries();
-    } catch (e) { toast.error((e as Error).message); }
-    finally { setBusy(null); }
-  };
 
   const { data: myAssignments } = useQuery({
     queryKey: ["my-assignments", user?.id, profile?.role],
@@ -117,18 +92,6 @@ function ProfilePage() {
           ))}
         </div>
 
-        <div className="mt-6 space-y-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4">
-          <p className="text-sm font-semibold flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-primary" /> Demo data</p>
-          <p className="text-xs text-muted-foreground">Add a sample student, writer, assignment, bids & chat to see the app in action.</p>
-          <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={handleSeed} disabled={busy !== null} className="flex-1 bg-gradient-primary">
-              <Sparkles className="h-4 w-4 mr-1" />{busy === "seed" ? "Adding…" : "Seed demo"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleClear} disabled={busy !== null} className="flex-1">
-              <Trash2 className="h-4 w-4 mr-1" />{busy === "clear" ? "Removing…" : "Clear demo"}
-            </Button>
-          </div>
-        </div>
 
         <Button variant="outline" onClick={signOut} className="w-full mt-4">
           <LogOut className="h-4 w-4 mr-2" />Sign out
