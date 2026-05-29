@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.purge_expired_assignments() FROM PUBLIC, anon, authenticated;
