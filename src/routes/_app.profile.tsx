@@ -92,18 +92,6 @@ function ProfilePage() {
           ))}
         </div>
 
-        <div className="mt-6 space-y-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4">
-          <p className="text-sm font-semibold flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-primary" /> Demo data</p>
-          <p className="text-xs text-muted-foreground">Add a sample student, writer, assignment, bids & chat to see the app in action.</p>
-          <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={handleSeed} disabled={busy !== null} className="flex-1 bg-gradient-primary">
-              <Sparkles className="h-4 w-4 mr-1" />{busy === "seed" ? "Adding…" : "Seed demo"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleClear} disabled={busy !== null} className="flex-1">
-              <Trash2 className="h-4 w-4 mr-1" />{busy === "clear" ? "Removing…" : "Clear demo"}
-            </Button>
-          </div>
-        </div>
 
         <Button variant="outline" onClick={signOut} className="w-full mt-4">
           <LogOut className="h-4 w-4 mr-2" />Sign out
