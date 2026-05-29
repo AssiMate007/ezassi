@@ -199,7 +199,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      purge_expired_assignments: { Args: never; Returns: undefined }
     }
     Enums: {
       assignment_status: "open" | "in_progress" | "completed" | "cancelled"
