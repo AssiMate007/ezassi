@@ -1,15 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Star, LogOut, GraduationCap, PenLine, Sparkles, Trash2 } from "lucide-react";
+import { Star, LogOut, GraduationCap, PenLine } from "lucide-react";
 import { AssignmentCard } from "@/components/AssignmentCard";
-import { seedDemo, clearDemo } from "@/lib/demo.functions";
-import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
