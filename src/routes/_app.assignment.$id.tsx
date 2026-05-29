@@ -177,7 +177,7 @@ function AssignmentPage() {
         ))}
       </div>
 
-      {isWriter && !isOwner && assignment.status === "open" && (
+      {!isOwner && assignment.status === "open" && (
         <form onSubmit={placeBid} className="mt-6 rounded-2xl bg-gradient-card p-4 shadow-card border border-border space-y-3">
           <h3 className="font-bold">{myBid ? "Update your bid" : "Place your bid"}</h3>
           <div className="relative">
@@ -188,7 +188,18 @@ function AssignmentPage() {
           <Button type="submit" disabled={placing} className="w-full bg-gradient-primary">
             {placing ? "…" : myBid ? "Update bid" : "Submit bid"}
           </Button>
+          <Link to="/chat/$id/$peer" params={{ id, peer: assignment.student_id }} className="block">
+            <Button type="button" size="sm" variant="secondary" className="w-full">
+              <MessageCircle className="h-4 w-4 mr-1" />Chat with student
+            </Button>
+          </Link>
         </form>
+      )}
+
+      {isOwner && (
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          This is your own assignment. Sign in with another account to bid on it.
+        </p>
       )}
     </div>
   );
