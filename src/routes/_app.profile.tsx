@@ -96,6 +96,15 @@ function ProfilePage() {
         <Button variant="outline" onClick={signOut} className="w-full mt-4">
           <LogOut className="h-4 w-4 mr-2" />Sign out
         </Button>
+
+        <div className="mt-6 pt-5 border-t border-border flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+          <a href="/about" className="hover:text-foreground">About</a>
+          <a href="/terms" className="hover:text-foreground">Terms</a>
+          <a href="/privacy" className="hover:text-foreground">Privacy</a>
+          <a href="/refund" className="hover:text-foreground">Refunds</a>
+          <a href="/contact" className="hover:text-foreground">Contact</a>
+        </div>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">© {new Date().getFullYear()} AssiMate</p>
       </div>
     </div>
   );
