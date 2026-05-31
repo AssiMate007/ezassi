@@ -58,13 +58,13 @@ function AuthPage() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-primary-foreground">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="h-6 w-6" />
-          <span className="font-semibold tracking-wide">HomeworkHero</span>
+          <span className="font-semibold tracking-wide">AssiMate</span>
         </div>
         <h1 className="text-4xl font-bold text-center leading-tight max-w-xs">
-          Homework help, <span className="italic">on your budget</span>
+          Your assignment <span className="italic">mate</span>, on your budget
         </h1>
         <p className="mt-3 text-center text-primary-foreground/85 max-w-xs">
-          Post your assignment, get bids, chat, and choose your hero.
+          Post your assignment, get bids, chat, and pick your mate.
         </p>
       </div>
 
@@ -124,6 +124,11 @@ function AuthPage() {
             </Button>
           </form>
         </Tabs>
+        <p className="mt-5 text-center text-xs text-muted-foreground">
+          By continuing you agree to our{" "}
+          <a href="/terms" className="underline hover:text-foreground">Terms</a> &{" "}
+          <a href="/privacy" className="underline hover:text-foreground">Privacy Policy</a>.
+        </p>
       </div>
     </div>
   );
