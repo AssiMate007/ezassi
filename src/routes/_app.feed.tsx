@@ -45,7 +45,7 @@ function FeedPage() {
           <p className="text-sm text-muted-foreground">Hey {profile?.display_name?.split(" ")[0] ?? "there"} 👋</p>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
-            <span className="text-gradient">HomeworkHero</span>
+            <span className="text-gradient">AssiMate</span>
           </h1>
         </div>
         <Link
