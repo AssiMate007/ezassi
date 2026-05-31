@@ -124,6 +124,11 @@ function AuthPage() {
             </Button>
           </form>
         </Tabs>
+        <p className="mt-5 text-center text-xs text-muted-foreground">
+          By continuing you agree to our{" "}
+          <a href="/terms" className="underline hover:text-foreground">Terms</a> &{" "}
+          <a href="/privacy" className="underline hover:text-foreground">Privacy Policy</a>.
+        </p>
       </div>
     </div>
   );
