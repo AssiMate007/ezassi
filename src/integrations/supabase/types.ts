@@ -171,6 +171,7 @@ export type Database = {
           jobs_completed: number
           rating: number
           role: Database["public"]["Enums"]["user_role"]
+          upi_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -181,6 +182,7 @@ export type Database = {
           jobs_completed?: number
           rating?: number
           role?: Database["public"]["Enums"]["user_role"]
+          upi_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -191,6 +193,7 @@ export type Database = {
           jobs_completed?: number
           rating?: number
           role?: Database["public"]["Enums"]["user_role"]
+          upi_id?: string | null
         }
         Relationships: []
       }
