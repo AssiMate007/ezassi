@@ -1,12 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Star, LogOut, GraduationCap, PenLine } from "lucide-react";
+import { Star, LogOut, GraduationCap, PenLine, Wallet, CheckCircle2 } from "lucide-react";
 import { AssignmentCard } from "@/components/AssignmentCard";
-
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
@@ -15,6 +17,25 @@ export const Route = createFileRoute("/_app/profile")({
 function ProfilePage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const [upiId, setUpiId] = useState("");
+  const [savingUpi, setSavingUpi] = useState(false);
+
+  useEffect(() => {
+    if (profile && "upi_id" in profile) setUpiId((profile as { upi_id?: string | null }).upi_id ?? "");
+  }, [profile]);
+
+  const saveUpi = async () => {
+    if (!user) return;
+    const trimmed = upiId.trim();
+    if (trimmed && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed)) {
+      return toast.error("Enter a valid UPI ID (e.g. name@okhdfcbank)");
+    }
+    setSavingUpi(true);
+    const { error } = await supabase.from("profiles").update({ upi_id: trimmed || null } as never).eq("id", user.id);
+    setSavingUpi(false);
+    if (error) return toast.error(error.message);
+    toast.success("UPI ID saved ✓");
+  };
 
 
 
