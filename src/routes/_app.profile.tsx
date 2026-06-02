@@ -99,6 +99,34 @@ function ProfilePage() {
           )}
         </div>
 
+        <div className="bg-card rounded-2xl p-4 shadow-card border border-border mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Wallet className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold text-sm">UPI ID for payouts</h3>
+            {profile && (profile as { upi_id?: string | null }).upi_id && (
+              <CheckCircle2 className="h-4 w-4 text-success ml-auto" />
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            {profile.role === "writer"
+              ? "Required to receive your 85% payout once an assignment is released."
+              : "Optional — used only if a refund needs to be sent to you."}
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="yourname@okhdfcbank"
+              value={upiId}
+              onChange={(e) => setUpiId(e.target.value)}
+              maxLength={100}
+              autoCapitalize="none"
+              autoCorrect="off"
+            />
+            <Button onClick={saveUpi} disabled={savingUpi} className="bg-gradient-primary">
+              {savingUpi ? "…" : "Save"}
+            </Button>
+          </div>
+        </div>
+
         <h2 className="font-bold mb-3">{profile.role === "student" ? "My assignments" : "My bids"}</h2>
         <div className="space-y-3">
           {!myAssignments?.length && (
