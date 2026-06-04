@@ -1,8 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, PlusCircle, MessageCircle, User } from "lucide-react";
+import { Home, PlusCircle, MessageCircle, User, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsAdmin } from "@/hooks/use-admin";
 
-const items = [
+const baseItems = [
   { to: "/feed", icon: Home, label: "Feed" },
   { to: "/post", icon: PlusCircle, label: "Post" },
   { to: "/chats", icon: MessageCircle, label: "Chats" },
@@ -11,9 +12,14 @@ const items = [
 
 export function BottomNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const isAdmin = useIsAdmin();
+  const items = isAdmin
+    ? ([...baseItems, { to: "/admin", icon: Shield, label: "Admin" }] as const)
+    : baseItems;
+  const cols = items.length === 5 ? "grid-cols-5" : "grid-cols-4";
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur-lg">
-      <div className="mx-auto max-w-md grid grid-cols-4">
+      <div className={cn("mx-auto max-w-md grid", cols)}>
         {items.map(({ to, icon: Icon, label }) => {
           const active = path === to || path.startsWith(to + "/");
           return (
