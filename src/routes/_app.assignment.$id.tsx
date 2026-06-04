@@ -180,10 +180,19 @@ function AssignmentPage() {
       {!isOwner && assignment.status === "open" && (
         <form onSubmit={placeBid} className="mt-6 rounded-2xl bg-gradient-card p-4 shadow-card border border-border space-y-3">
           <h3 className="font-bold">{myBid ? "Update your bid" : "Place your bid"}</h3>
-          <div className="relative">
-            <IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input type="number" required min={1} placeholder="Your price" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)} className="pl-8" />
+          <div className="flex items-center gap-2">
+            <Button type="button" size="icon" variant="outline" onClick={() => setBidAmount((v) => String(Math.max(1, (parseInt(v || "0") || 0) - 10)))}>
+              <Minus className="h-4 w-4" />
+            </Button>
+            <div className="relative flex-1">
+              <IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input type="number" required min={1} placeholder="Your price" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)} className="pl-8 text-center font-bold text-lg" inputMode="numeric" />
+            </div>
+            <Button type="button" size="icon" variant="outline" onClick={() => setBidAmount((v) => String((parseInt(v || "0") || 0) + 10))}>
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
+          <p className="text-[11px] text-muted-foreground text-center">Tap − or + to adjust by ₹10</p>
           <Textarea rows={2} placeholder="Quick pitch (optional)" value={bidMessage} onChange={(e) => setBidMessage(e.target.value)} />
           <Button type="submit" disabled={placing} className="w-full bg-gradient-primary">
             {placing ? "…" : myBid ? "Update bid" : "Submit bid"}
@@ -194,6 +203,10 @@ function AssignmentPage() {
             </Button>
           </Link>
         </form>
+      )}
+
+      {assignment.status !== "open" && assignment.accepted_bid_id && (
+        <PostAcceptSection assignmentId={id} assignment={assignment} userId={user?.id} />
       )}
 
       {isOwner && (
