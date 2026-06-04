@@ -22,6 +22,8 @@ import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppPostRouteImport } from './routes/_app.post'
 import { Route as AppFeedRouteImport } from './routes/_app.feed'
 import { Route as AppChatsRouteImport } from './routes/_app.chats'
+import { Route as AppAdminRouteImport } from './routes/_app.admin'
+import { Route as AppPaymentIdRouteImport } from './routes/_app.payment.$id'
 import { Route as AppAssignmentIdRouteImport } from './routes/_app.assignment.$id'
 import { Route as AppChatIdPeerRouteImport } from './routes/_app.chat.$id.$peer'
 
@@ -88,6 +90,16 @@ const AppChatsRoute = AppChatsRouteImport.update({
   path: '/chats',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPaymentIdRoute = AppPaymentIdRouteImport.update({
+  id: '/payment/$id',
+  path: '/payment/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAssignmentIdRoute = AppAssignmentIdRouteImport.update({
   id: '/assignment/$id',
   path: '/assignment/$id',
@@ -102,6 +114,7 @@ const AppChatIdPeerRoute = AppChatIdPeerRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin': typeof AppAdminRoute
   '/chats': typeof AppChatsRoute
   '/feed': typeof AppFeedRoute
   '/post': typeof AppPostRoute
@@ -112,11 +125,13 @@ export interface FileRoutesByFullPath {
   '/refund': typeof LegalRefundRoute
   '/terms': typeof LegalTermsRoute
   '/assignment/$id': typeof AppAssignmentIdRoute
+  '/payment/$id': typeof AppPaymentIdRoute
   '/chat/$id/$peer': typeof AppChatIdPeerRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin': typeof AppAdminRoute
   '/chats': typeof AppChatsRoute
   '/feed': typeof AppFeedRoute
   '/post': typeof AppPostRoute
@@ -127,6 +142,7 @@ export interface FileRoutesByTo {
   '/refund': typeof LegalRefundRoute
   '/terms': typeof LegalTermsRoute
   '/assignment/$id': typeof AppAssignmentIdRoute
+  '/payment/$id': typeof AppPaymentIdRoute
   '/chat/$id/$peer': typeof AppChatIdPeerRoute
 }
 export interface FileRoutesById {
@@ -135,6 +151,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_legal': typeof LegalRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_app/admin': typeof AppAdminRoute
   '/_app/chats': typeof AppChatsRoute
   '/_app/feed': typeof AppFeedRoute
   '/_app/post': typeof AppPostRoute
@@ -145,6 +162,7 @@ export interface FileRoutesById {
   '/_legal/refund': typeof LegalRefundRoute
   '/_legal/terms': typeof LegalTermsRoute
   '/_app/assignment/$id': typeof AppAssignmentIdRoute
+  '/_app/payment/$id': typeof AppPaymentIdRoute
   '/_app/chat/$id/$peer': typeof AppChatIdPeerRoute
 }
 export interface FileRouteTypes {
@@ -152,6 +170,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/admin'
     | '/chats'
     | '/feed'
     | '/post'
@@ -162,11 +181,13 @@ export interface FileRouteTypes {
     | '/refund'
     | '/terms'
     | '/assignment/$id'
+    | '/payment/$id'
     | '/chat/$id/$peer'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/admin'
     | '/chats'
     | '/feed'
     | '/post'
@@ -177,6 +198,7 @@ export interface FileRouteTypes {
     | '/refund'
     | '/terms'
     | '/assignment/$id'
+    | '/payment/$id'
     | '/chat/$id/$peer'
   id:
     | '__root__'
@@ -184,6 +206,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_legal'
     | '/auth'
+    | '/_app/admin'
     | '/_app/chats'
     | '/_app/feed'
     | '/_app/post'
@@ -194,6 +217,7 @@ export interface FileRouteTypes {
     | '/_legal/refund'
     | '/_legal/terms'
     | '/_app/assignment/$id'
+    | '/_app/payment/$id'
     | '/_app/chat/$id/$peer'
   fileRoutesById: FileRoutesById
 }
@@ -297,6 +321,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChatsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/payment/$id': {
+      id: '/_app/payment/$id'
+      path: '/payment/$id'
+      fullPath: '/payment/$id'
+      preLoaderRoute: typeof AppPaymentIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/assignment/$id': {
       id: '/_app/assignment/$id'
       path: '/assignment/$id'
@@ -315,20 +353,24 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAdminRoute: typeof AppAdminRoute
   AppChatsRoute: typeof AppChatsRoute
   AppFeedRoute: typeof AppFeedRoute
   AppPostRoute: typeof AppPostRoute
   AppProfileRoute: typeof AppProfileRoute
   AppAssignmentIdRoute: typeof AppAssignmentIdRoute
+  AppPaymentIdRoute: typeof AppPaymentIdRoute
   AppChatIdPeerRoute: typeof AppChatIdPeerRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAdminRoute: AppAdminRoute,
   AppChatsRoute: AppChatsRoute,
   AppFeedRoute: AppFeedRoute,
   AppPostRoute: AppPostRoute,
   AppProfileRoute: AppProfileRoute,
   AppAssignmentIdRoute: AppAssignmentIdRoute,
+  AppPaymentIdRoute: AppPaymentIdRoute,
   AppChatIdPeerRoute: AppChatIdPeerRoute,
 }
 
@@ -361,13 +403,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

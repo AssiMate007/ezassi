@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignment_files: {
+        Row: {
+          assignment_id: string
+          bid_id: string
+          created_at: string
+          file_name: string
+          file_size: number
+          id: string
+          released: boolean
+          storage_path: string
+          writer_id: string
+        }
+        Insert: {
+          assignment_id: string
+          bid_id: string
+          created_at?: string
+          file_name: string
+          file_size: number
+          id?: string
+          released?: boolean
+          storage_path: string
+          writer_id: string
+        }
+        Update: {
+          assignment_id?: string
+          bid_id?: string
+          created_at?: string
+          file_name?: string
+          file_size?: number
+          id?: string
+          released?: boolean
+          storage_path?: string
+          writer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_files_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_files_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: true
+            referencedRelation: "bids"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignments: {
         Row: {
           accepted_bid_id: string | null
@@ -161,6 +212,102 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          link: string | null
+          read: boolean
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read?: boolean
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read?: boolean
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          assignment_id: string
+          bid_id: string
+          commission: number
+          created_at: string
+          id: string
+          payment_received_at: string | null
+          released_at: string | null
+          screenshot_url: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          student_id: string
+          updated_at: string
+          writer_id: string
+          writer_payout: number
+        }
+        Insert: {
+          amount: number
+          assignment_id: string
+          bid_id: string
+          commission: number
+          created_at?: string
+          id?: string
+          payment_received_at?: string | null
+          released_at?: string | null
+          screenshot_url?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          student_id: string
+          updated_at?: string
+          writer_id: string
+          writer_payout: number
+        }
+        Update: {
+          amount?: number
+          assignment_id?: string
+          bid_id?: string
+          commission?: number
+          created_at?: string
+          id?: string
+          payment_received_at?: string | null
+          released_at?: string | null
+          screenshot_url?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          student_id?: string
+          updated_at?: string
+          writer_id?: string
+          writer_payout?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: true
+            referencedRelation: "bids"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -197,16 +344,50 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       purge_expired_assignments: { Args: never; Returns: undefined }
     }
     Enums: {
+      app_role: "admin" | "user"
       assignment_status: "open" | "in_progress" | "completed" | "cancelled"
       bid_status: "pending" | "accepted" | "rejected" | "withdrawn"
+      payment_status:
+        | "awaiting_payment"
+        | "payment_received"
+        | "file_delivered"
+        | "cancelled"
       user_role: "student" | "writer"
     }
     CompositeTypes: {
@@ -335,8 +516,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "user"],
       assignment_status: ["open", "in_progress", "completed", "cancelled"],
       bid_status: ["pending", "accepted", "rejected", "withdrawn"],
+      payment_status: [
+        "awaiting_payment",
+        "payment_received",
+        "file_delivered",
+        "cancelled",
+      ],
       user_role: ["student", "writer"],
     },
   },

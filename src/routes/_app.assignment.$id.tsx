@@ -1,13 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, IndianRupee, Star, Clock, MessageCircle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, IndianRupee, Star, Clock, MessageCircle, CheckCircle2, Plus, Minus, Wallet, Upload, FileText, Lock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
@@ -180,10 +180,19 @@ function AssignmentPage() {
       {!isOwner && assignment.status === "open" && (
         <form onSubmit={placeBid} className="mt-6 rounded-2xl bg-gradient-card p-4 shadow-card border border-border space-y-3">
           <h3 className="font-bold">{myBid ? "Update your bid" : "Place your bid"}</h3>
-          <div className="relative">
-            <IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input type="number" required min={1} placeholder="Your price" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)} className="pl-8" />
+          <div className="flex items-center gap-2">
+            <Button type="button" size="icon" variant="outline" onClick={() => setBidAmount((v) => String(Math.max(1, (parseInt(v || "0") || 0) - 10)))}>
+              <Minus className="h-4 w-4" />
+            </Button>
+            <div className="relative flex-1">
+              <IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input type="number" required min={1} placeholder="Your price" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)} className="pl-8 text-center font-bold text-lg" inputMode="numeric" />
+            </div>
+            <Button type="button" size="icon" variant="outline" onClick={() => setBidAmount((v) => String((parseInt(v || "0") || 0) + 10))}>
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
+          <p className="text-[11px] text-muted-foreground text-center">Tap − or + to adjust by ₹10</p>
           <Textarea rows={2} placeholder="Quick pitch (optional)" value={bidMessage} onChange={(e) => setBidMessage(e.target.value)} />
           <Button type="submit" disabled={placing} className="w-full bg-gradient-primary">
             {placing ? "…" : myBid ? "Update bid" : "Submit bid"}
@@ -196,11 +205,124 @@ function AssignmentPage() {
         </form>
       )}
 
+      {assignment.status !== "open" && assignment.accepted_bid_id && (
+        <PostAcceptSection assignmentId={id} assignment={assignment} userId={user?.id} />
+      )}
+
       {isOwner && (
         <p className="mt-6 text-center text-xs text-muted-foreground">
           This is your own assignment. Sign in with another account to bid on it.
         </p>
       )}
+    </div>
+  );
+}
+
+interface AssignmentLite { student_id: string; accepted_bid_id: string | null; title: string }
+
+function PostAcceptSection({ assignmentId, assignment, userId }: { assignmentId: string; assignment: AssignmentLite; userId?: string }) {
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: payment } = useQuery({
+    queryKey: ["payment-by-bid", assignment.accepted_bid_id],
+    enabled: !!assignment.accepted_bid_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("payments").select("*").eq("bid_id", assignment.accepted_bid_id!).maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: bid } = useQuery({
+    queryKey: ["bid", assignment.accepted_bid_id],
+    enabled: !!assignment.accepted_bid_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("bids").select("*").eq("id", assignment.accepted_bid_id!).single();
+      return data;
+    },
+  });
+
+  const { data: file } = useQuery({
+    queryKey: ["assignment-file", assignmentId],
+    queryFn: async () => {
+      const { data } = await supabase.from("assignment_files").select("*").eq("assignment_id", assignmentId).maybeSingle();
+      return data;
+    },
+  });
+
+  if (!bid) return null;
+  const isStudent = userId === assignment.student_id;
+  const isWriter = userId === bid.writer_id;
+
+  const uploadAssignmentFile = async (f: File) => {
+    if (!userId) return;
+    if (f.size > 25 * 1024 * 1024) return toast.error("Max 25 MB");
+    setUploading(true);
+    const path = `${userId}/assignment-${assignmentId}-${Date.now()}-${f.name}`;
+    const { error: upErr } = await supabase.storage.from("assignment-files").upload(path, f);
+    if (upErr) { setUploading(false); return toast.error(upErr.message); }
+    const { error } = await supabase.from("assignment_files").upsert({
+      assignment_id: assignmentId,
+      bid_id: bid.id,
+      writer_id: userId,
+      storage_path: path,
+      file_name: f.name,
+      file_size: f.size,
+      released: false,
+    }, { onConflict: "bid_id" });
+    setUploading(false);
+    if (error) return toast.error(error.message);
+    await supabase.from("notifications").insert([
+      { user_id: assignment.student_id, title: "Writer uploaded the file", body: "Locked until admin verifies payment & releases.", link: `/payment/${assignmentId}` },
+    ]);
+    const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+    if (admins?.length) {
+      await supabase.from("notifications").insert(admins.map((a) => ({
+        user_id: a.user_id, title: "Writer file ready to release", body: assignment.title, link: "/admin",
+      })));
+    }
+    toast.success("File uploaded — locked until admin releases");
+    qc.invalidateQueries({ queryKey: ["assignment-file", assignmentId] });
+  };
+
+  return (
+    <div className="mt-6 space-y-3">
+      <div className="rounded-2xl bg-card border border-border p-4 shadow-card">
+        <div className="flex items-center gap-2 mb-2">
+          <CheckCircle2 className="h-4 w-4 text-success" />
+          <p className="font-semibold text-sm">Bid accepted — ₹{bid.amount}</p>
+        </div>
+        {isStudent && (
+          <Link to="/payment/$id" params={{ id: assignmentId }}>
+            <Button className="w-full bg-gradient-primary">
+              <Wallet className="h-4 w-4 mr-2" />
+              {payment ? (payment.status === "file_delivered" ? "View file" : "View payment") : "Pay now"}
+            </Button>
+          </Link>
+        )}
+        {isWriter && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Payment status: <strong>{payment?.status?.replace("_", " ") ?? "not started"}</strong>
+            </p>
+            <input ref={fileRef} type="file" hidden onChange={(e) => e.target.files?.[0] && uploadAssignmentFile(e.target.files[0])} />
+            <Button onClick={() => fileRef.current?.click()} disabled={uploading} variant="outline" className="w-full">
+              <Upload className="h-4 w-4 mr-2" />
+              {uploading ? "Uploading…" : file ? "Replace file" : "Upload assignment"}
+            </Button>
+            {file && (
+              <p className="text-xs flex items-center gap-1 text-muted-foreground">
+                {file.released ? <CheckCircle2 className="h-3 w-3 text-success" /> : <Lock className="h-3 w-3" />}
+                <FileText className="h-3 w-3" />{file.file_name} {file.released ? "(delivered)" : "(locked)"}
+              </p>
+            )}
+            {payment?.status === "file_delivered" && (
+              <p className="text-xs text-success">Released. Owner will send ₹{payment.writer_payout} to your UPI.</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
