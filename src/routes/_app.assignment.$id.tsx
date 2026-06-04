@@ -217,3 +217,112 @@ function AssignmentPage() {
     </div>
   );
 }
+
+interface AssignmentLite { student_id: string; accepted_bid_id: string | null; title: string }
+
+function PostAcceptSection({ assignmentId, assignment, userId }: { assignmentId: string; assignment: AssignmentLite; userId?: string }) {
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: payment } = useQuery({
+    queryKey: ["payment-by-bid", assignment.accepted_bid_id],
+    enabled: !!assignment.accepted_bid_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("payments").select("*").eq("bid_id", assignment.accepted_bid_id!).maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: bid } = useQuery({
+    queryKey: ["bid", assignment.accepted_bid_id],
+    enabled: !!assignment.accepted_bid_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("bids").select("*").eq("id", assignment.accepted_bid_id!).single();
+      return data;
+    },
+  });
+
+  const { data: file } = useQuery({
+    queryKey: ["assignment-file", assignmentId],
+    queryFn: async () => {
+      const { data } = await supabase.from("assignment_files").select("*").eq("assignment_id", assignmentId).maybeSingle();
+      return data;
+    },
+  });
+
+  if (!bid) return null;
+  const isStudent = userId === assignment.student_id;
+  const isWriter = userId === bid.writer_id;
+
+  const uploadAssignmentFile = async (f: File) => {
+    if (!userId) return;
+    if (f.size > 25 * 1024 * 1024) return toast.error("Max 25 MB");
+    setUploading(true);
+    const path = `${userId}/assignment-${assignmentId}-${Date.now()}-${f.name}`;
+    const { error: upErr } = await supabase.storage.from("assignment-files").upload(path, f);
+    if (upErr) { setUploading(false); return toast.error(upErr.message); }
+    const { error } = await supabase.from("assignment_files").upsert({
+      assignment_id: assignmentId,
+      bid_id: bid.id,
+      writer_id: userId,
+      storage_path: path,
+      file_name: f.name,
+      file_size: f.size,
+      released: false,
+    }, { onConflict: "bid_id" });
+    setUploading(false);
+    if (error) return toast.error(error.message);
+    await supabase.from("notifications").insert([
+      { user_id: assignment.student_id, title: "Writer uploaded the file", body: "Locked until admin verifies payment & releases.", link: `/payment/${assignmentId}` },
+    ]);
+    const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+    if (admins?.length) {
+      await supabase.from("notifications").insert(admins.map((a) => ({
+        user_id: a.user_id, title: "Writer file ready to release", body: assignment.title, link: "/admin",
+      })));
+    }
+    toast.success("File uploaded — locked until admin releases");
+    qc.invalidateQueries({ queryKey: ["assignment-file", assignmentId] });
+  };
+
+  return (
+    <div className="mt-6 space-y-3">
+      <div className="rounded-2xl bg-card border border-border p-4 shadow-card">
+        <div className="flex items-center gap-2 mb-2">
+          <CheckCircle2 className="h-4 w-4 text-success" />
+          <p className="font-semibold text-sm">Bid accepted — ₹{bid.amount}</p>
+        </div>
+        {isStudent && (
+          <Link to="/payment/$id" params={{ id: assignmentId }}>
+            <Button className="w-full bg-gradient-primary">
+              <Wallet className="h-4 w-4 mr-2" />
+              {payment ? (payment.status === "file_delivered" ? "View file" : "View payment") : "Pay now"}
+            </Button>
+          </Link>
+        )}
+        {isWriter && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Payment status: <strong>{payment?.status?.replace("_", " ") ?? "not started"}</strong>
+            </p>
+            <input ref={fileRef} type="file" hidden onChange={(e) => e.target.files?.[0] && uploadAssignmentFile(e.target.files[0])} />
+            <Button onClick={() => fileRef.current?.click()} disabled={uploading} variant="outline" className="w-full">
+              <Upload className="h-4 w-4 mr-2" />
+              {uploading ? "Uploading…" : file ? "Replace file" : "Upload assignment"}
+            </Button>
+            {file && (
+              <p className="text-xs flex items-center gap-1 text-muted-foreground">
+                {file.released ? <CheckCircle2 className="h-3 w-3 text-success" /> : <Lock className="h-3 w-3" />}
+                <FileText className="h-3 w-3" />{file.file_name} {file.released ? "(delivered)" : "(locked)"}
+              </p>
+            )}
+            {payment?.status === "file_delivered" && (
+              <p className="text-xs text-success">Released. Owner will send ₹{payment.writer_payout} to your UPI.</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
