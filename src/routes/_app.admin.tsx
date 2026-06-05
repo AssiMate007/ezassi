@@ -35,7 +35,7 @@ interface ProfileRow {
   rating: number; jobs_completed: number; upi_id: string | null;
 }
 
-const CHART_COLORS = ["hsl(var(--primary))", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--muted-foreground))"];
+const CHART_COLORS = ["var(--primary)", "var(--success)", "var(--warning)", "var(--muted-foreground)"];
 
 function AdminPage() {
   const isAdmin = useIsAdmin();
@@ -234,20 +234,20 @@ function AdminPage() {
               <AreaChart data={series} margin={{ left: -20, right: 5, top: 5 }}>
                 <defs>
                   <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gProf" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--success)" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="var(--success)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-                <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="url(#gRev)" strokeWidth={2} />
-                <Area type="monotone" dataKey="profit" stroke="hsl(var(--success))" fill="url(#gProf)" strokeWidth={2} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                <Area type="monotone" dataKey="revenue" stroke="var(--primary)" fill="url(#gRev)" strokeWidth={2} />
+                <Area type="monotone" dataKey="profit" stroke="var(--success)" fill="url(#gProf)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -256,11 +256,11 @@ function AdminPage() {
           <ChartCard title="New users (14d)" icon={Users}>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={series} margin={{ left: -20, right: 5, top: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-                <Bar dataKey="users" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" allowDecimals={false} />
+                <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="users" fill="var(--primary)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -270,11 +270,11 @@ function AdminPage() {
             <ChartCard title="Bid activity (14d)" icon={Activity}>
               <ResponsiveContainer width="100%" height={160}>
                 <LineChart data={series} margin={{ left: -20, right: 5, top: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-                  <Line type="monotone" dataKey="bids" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                  <Line type="monotone" dataKey="bids" stroke="var(--primary)" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -286,7 +286,7 @@ function AdminPage() {
                     <Pie data={statusPie} dataKey="value" nameKey="name" outerRadius={70} innerRadius={40} paddingAngle={3}>
                       {statusPie.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
+                    <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                   </PieChart>
                 </ResponsiveContainer>
