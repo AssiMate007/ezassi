@@ -67,6 +67,15 @@ function AuthPage() {
     }
   };
 
+  const forgotPassword = async (addr: string) => {
+    if (!addr) return toast.error("Enter your email first");
+    const { error } = await supabase.auth.resetPasswordForEmail(addr, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Reset link sent — check your inbox");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-hero flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-primary-foreground">
@@ -139,6 +148,11 @@ function AuthPage() {
                 <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               </div>
               <PasswordField value={password} onChange={setPassword} show={showPassword} setShow={setShowPassword} />
+              {mode === "signin" && (
+                <button type="button" onClick={() => forgotPassword(email)} className="text-xs text-primary hover:underline block w-full text-right">
+                  Forgot password?
+                </button>
+              )}
               <Button type="submit" disabled={loading} className="w-full h-12 text-base bg-gradient-primary shadow-soft">
                 {loading ? "…" : mode === "signup" ? "Create account" : "Sign in"}
               </Button>
