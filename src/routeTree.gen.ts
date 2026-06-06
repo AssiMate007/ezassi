@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as LegalRouteImport } from './routes/_legal'
 import { Route as AppRouteImport } from './routes/_app'
@@ -27,6 +28,11 @@ import { Route as AppPaymentIdRouteImport } from './routes/_app.payment.$id'
 import { Route as AppAssignmentIdRouteImport } from './routes/_app.assignment.$id'
 import { Route as AppChatIdPeerRouteImport } from './routes/_app.chat.$id.$peer'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -114,6 +120,7 @@ const AppChatIdPeerRoute = AppChatIdPeerRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AppAdminRoute
   '/chats': typeof AppChatsRoute
   '/feed': typeof AppFeedRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AppAdminRoute
   '/chats': typeof AppChatsRoute
   '/feed': typeof AppFeedRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_legal': typeof LegalRouteWithChildren
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_app/admin': typeof AppAdminRoute
   '/_app/chats': typeof AppChatsRoute
   '/_app/feed': typeof AppFeedRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/reset-password'
     | '/admin'
     | '/chats'
     | '/feed'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/reset-password'
     | '/admin'
     | '/chats'
     | '/feed'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_legal'
     | '/auth'
+    | '/reset-password'
     | '/_app/admin'
     | '/_app/chats'
     | '/_app/feed'
@@ -226,10 +238,18 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LegalRoute: typeof LegalRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -399,7 +419,18 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LegalRoute: LegalRouteWithChildren,
   AuthRoute: AuthRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
