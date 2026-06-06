@@ -37,10 +37,16 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const useEmail = isAdmin ? ADMIN_EMAIL : email;
-      if (!isAdmin && mode === "signup") {
+      if (isAdmin) {
+        const { error } = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password });
+        if (error) throw new Error("Invalid admin password");
+        toast.success("Welcome, Admin");
+        navigate({ to: "/admin" });
+        return;
+      }
+      if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email: useEmail, password,
+          email, password,
           options: {
             emailRedirectTo: window.location.origin,
             data: { display_name: displayName, role },
@@ -49,24 +55,11 @@ function AuthPage() {
         if (error) throw error;
         toast.success("Welcome! 🎉 You're in.");
       } else {
-        // Admin: try sign-in; if account doesn't exist yet, auto-create it so the trigger grants the admin role.
-        const { error } = await supabase.auth.signInWithPassword({ email: useEmail, password });
-        if (error) {
-          if (isAdmin && /invalid login|invalid credentials/i.test(error.message)) {
-            const { error: sErr } = await supabase.auth.signUp({
-              email: useEmail, password,
-              options: { emailRedirectTo: window.location.origin, data: { display_name: "Admin", role: "student" } },
-            });
-            if (sErr) throw sErr;
-            toast.success("Admin account created");
-          } else {
-            throw error;
-          }
-        } else {
-          toast.success(isAdmin ? "Welcome, Admin" : "Welcome back!");
-        }
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        toast.success("Welcome back!");
       }
-      navigate({ to: isAdmin ? "/admin" : "/feed" });
+      navigate({ to: "/feed" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
