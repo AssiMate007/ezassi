@@ -153,10 +153,6 @@ function AuthPage() {
                 <p className="text-xs text-muted-foreground">Owner-only access</p>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Admin email</Label>
-              <Input value={ADMIN_EMAIL} readOnly disabled />
-            </div>
             <PasswordField value={password} onChange={setPassword} show={showPassword} setShow={setShowPassword} />
             <Button type="submit" disabled={loading} className="w-full h-12 text-base bg-gradient-primary shadow-soft">
               {loading ? "…" : "Enter admin panel"}
