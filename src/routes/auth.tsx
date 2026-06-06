@@ -139,6 +139,11 @@ function AuthPage() {
                 <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               </div>
               <PasswordField value={password} onChange={setPassword} show={showPassword} setShow={setShowPassword} />
+              {mode === "signin" && (
+                <button type="button" onClick={() => forgotPassword(email)} className="text-xs text-primary hover:underline block w-full text-right">
+                  Forgot password?
+                </button>
+              )}
               <Button type="submit" disabled={loading} className="w-full h-12 text-base bg-gradient-primary shadow-soft">
                 {loading ? "…" : mode === "signup" ? "Create account" : "Sign in"}
               </Button>
