@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,20 @@ function AdminPage() {
     enabled: isAdmin,
     queryFn: async () => (await supabase.from("bids").select("id,created_at,amount,status")).data ?? [],
   });
+
+  // Realtime: refresh admin views as payments/files/assignments/profiles change
+  useEffect(() => {
+    if (!isAdmin) return;
+    const ch = supabase
+      .channel("admin-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, () => qc.invalidateQueries({ queryKey: ["admin-payments"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "assignment_files" }, () => qc.invalidateQueries({ queryKey: ["admin-files"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => qc.invalidateQueries({ queryKey: ["admin-profiles"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, () => qc.invalidateQueries({ queryKey: ["admin-assignments"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "bids" }, () => qc.invalidateQueries({ queryKey: ["admin-bids"] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [isAdmin, qc]);
 
   // === derived stats ===
   const stats = useMemo(() => {
