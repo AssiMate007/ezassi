@@ -13,6 +13,8 @@ const baseItems = [
 export function BottomNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const isAdmin = useIsAdmin();
+  // Hide on chat detail pages so the message input isn't covered
+  if (path.startsWith("/chat/")) return null;
   const items = isAdmin
     ? ([...baseItems, { to: "/admin", icon: Shield, label: "Admin" }] as const)
     : baseItems;
