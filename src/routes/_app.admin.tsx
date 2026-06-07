@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,20 @@ function AdminPage() {
     enabled: isAdmin,
     queryFn: async () => (await supabase.from("bids").select("id,created_at,amount,status")).data ?? [],
   });
+
+  // Realtime: refresh admin views as payments/files/assignments/profiles change
+  useEffect(() => {
+    if (!isAdmin) return;
+    const ch = supabase
+      .channel("admin-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, () => qc.invalidateQueries({ queryKey: ["admin-payments"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "assignment_files" }, () => qc.invalidateQueries({ queryKey: ["admin-files"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => qc.invalidateQueries({ queryKey: ["admin-profiles"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, () => qc.invalidateQueries({ queryKey: ["admin-assignments"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "bids" }, () => qc.invalidateQueries({ queryKey: ["admin-bids"] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [isAdmin, qc]);
 
   // === derived stats ===
   const stats = useMemo(() => {
@@ -324,10 +338,33 @@ function AdminPage() {
           {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
           <div className="space-y-3">
             {payments?.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No payments yet</p>}
-            {payments?.map((p) => {
+            {[...(payments ?? [])].sort((a, b) => {
+              // actionable first: awaiting+screenshot, then payment_received with file
+              const score = (p: PaymentRow) => {
+                const f = fileForBid(p.bid_id);
+                if (p.status === "awaiting_payment" && p.screenshot_url) return 0;
+                if (p.status === "payment_received" && f && !(f as any).released) return 1;
+                if (p.status === "payment_received") return 2;
+                if (p.status === "file_delivered") return 4;
+                return 3;
+              };
+              return score(a) - score(b);
+            }).map((p) => {
               const f = fileForBid(p.bid_id);
+              const needsVerify = p.status === "awaiting_payment" && p.screenshot_url;
+              const needsRelease = p.status === "payment_received" && f && !(f as any).released;
               return (
-                <div key={p.id} className="rounded-2xl bg-card border border-border p-4 shadow-card">
+                <div key={p.id} className={`rounded-2xl bg-card border p-4 shadow-card ${needsVerify ? "border-warning ring-2 ring-warning/30" : needsRelease ? "border-primary ring-2 ring-primary/30" : "border-border"}`}>
+                  {needsVerify && (
+                    <div className="mb-3 -mx-1 px-3 py-1.5 rounded-lg bg-warning/15 text-warning text-xs font-semibold flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" /> Screenshot uploaded — verify payment
+                    </div>
+                  )}
+                  {needsRelease && (
+                    <div className="mb-3 -mx-1 px-3 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-semibold flex items-center gap-1">
+                      <FileText className="h-3.5 w-3.5" /> Writer uploaded file — release to student
+                    </div>
+                  )}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm truncate">{p.assignment?.title}</p>
@@ -350,23 +387,28 @@ function AdminPage() {
                   <div className="flex flex-wrap gap-2">
                     {p.screenshot_url && (
                       <Button size="sm" variant="outline" onClick={() => viewScreenshot(p.screenshot_url!)}>
-                        <Eye className="h-3.5 w-3.5 mr-1" />Screenshot
+                        <Eye className="h-3.5 w-3.5 mr-1" />View screenshot
                       </Button>
                     )}
                     {p.status === "awaiting_payment" && p.screenshot_url && (
                       <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground" onClick={() => markReceived(p)}>
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark received
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark payment received
                       </Button>
                     )}
                     {f && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <FileText className="h-3.5 w-3.5" />{(f as any).file_name} {(f as any).released && "(released)"}
-                      </span>
-                    )}
-                    {p.status === "payment_received" && f && !(f as any).released && (
-                      <Button size="sm" className="bg-gradient-primary" onClick={() => releaseFile(p)}>
-                        Release file
+                      <Button size="sm" variant="outline" onClick={() => viewScreenshot((f as any).storage_path)}>
+                        <FileText className="h-3.5 w-3.5 mr-1" />View file
                       </Button>
+                    )}
+                    {needsRelease && (
+                      <Button size="sm" className="bg-gradient-primary" onClick={() => releaseFile(p)}>
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Release to student
+                      </Button>
+                    )}
+                    {f && (f as any).released && (
+                      <span className="text-[11px] text-success flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />Delivered
+                      </span>
                     )}
                     <Link to="/assignment/$id" params={{ id: p.assignment_id }}>
                       <Button size="sm" variant="ghost"><ExternalLink className="h-3.5 w-3.5" /></Button>
