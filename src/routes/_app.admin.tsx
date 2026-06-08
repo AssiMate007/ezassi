@@ -1,13 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   IndianRupee, CheckCircle2, Clock, FileText, ExternalLink, ShieldAlert,
-  Wallet, TrendingUp, Eye, Users, GraduationCap, PenLine, Activity, Trophy, Sparkles,
+  Wallet, TrendingUp, Eye, Users, GraduationCap, PenLine, Activity, Trophy,
+  Sparkles, Search, Ban, RotateCcw, Bell, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -32,7 +34,7 @@ interface PaymentRow {
 
 interface ProfileRow {
   id: string; display_name: string; role: "student" | "writer"; created_at: string;
-  rating: number; jobs_completed: number; upi_id: string | null;
+  rating: number; jobs_completed: number; upi_id: string | null; is_banned?: boolean;
 }
 
 const CHART_COLORS = ["var(--primary)", "var(--success)", "var(--warning)", "var(--muted-foreground)"];
@@ -40,6 +42,11 @@ const CHART_COLORS = ["var(--primary)", "var(--success)", "var(--warning)", "var
 function AdminPage() {
   const isAdmin = useIsAdmin();
   const qc = useQueryClient();
+  const [userSearch, setUserSearch] = useState("");
+  const [notifTarget, setNotifTarget] = useState("");
+  const [notifTitle, setNotifTitle] = useState("");
+  const [notifBody, setNotifBody] = useState("");
+  const [sendingNotif, setSendingNotif] = useState(false);
 
   const { data: payments, isLoading } = useQuery({
     queryKey: ["admin-payments"],
@@ -80,7 +87,7 @@ function AdminPage() {
     queryFn: async () => (await supabase.from("bids").select("id,created_at,amount,status")).data ?? [],
   });
 
-  // Realtime: refresh admin views as payments/files/assignments/profiles change
+  // Realtime subscriptions
   useEffect(() => {
     if (!isAdmin) return;
     const ch = supabase
@@ -94,7 +101,7 @@ function AdminPage() {
     return () => { supabase.removeChannel(ch); };
   }, [isAdmin, qc]);
 
-  // === derived stats ===
+  // Derived stats
   const stats = useMemo(() => {
     const paid = payments?.filter((p) => p.status !== "awaiting_payment" && p.status !== "cancelled") ?? [];
     const revenue = paid.reduce((s, p) => s + p.amount, 0);
@@ -115,7 +122,6 @@ function AdminPage() {
     for (let i = 13; i >= 0; i--) {
       const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
       const next = new Date(d); next.setDate(next.getDate() + 1);
-      const key = d.toISOString().slice(0, 10);
       const label = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
       const inRange = (iso: string) => { const t = new Date(iso).getTime(); return t >= d.getTime() && t < next.getTime(); };
       const usersN = profiles?.filter((p) => inRange(p.created_at)).length ?? 0;
@@ -123,7 +129,7 @@ function AdminPage() {
       const rev = paysIn.reduce((s, p) => s + p.amount, 0);
       const prof = paysIn.reduce((s, p) => s + p.commission, 0);
       const bidsN = bids?.filter((b: any) => inRange(b.created_at)).length ?? 0;
-      days.push({ date: key, label, users: usersN, revenue: rev, profit: prof, bids: bidsN });
+      days.push({ date: d.toISOString().slice(0, 10), label, users: usersN, revenue: rev, profit: prof, bids: bidsN });
     }
     return days;
   }, [profiles, payments, bids]);
@@ -150,11 +156,22 @@ function AdminPage() {
     return [...map.values()].sort((a, b) => b.earned - a.earned).slice(0, 5);
   }, [payments]);
 
+  const filteredProfiles = useMemo(() => {
+    if (!userSearch.trim()) return profiles ?? [];
+    const q = userSearch.toLowerCase();
+    return (profiles ?? []).filter((p) =>
+      p.display_name.toLowerCase().includes(q) ||
+      p.role.includes(q) ||
+      (p.upi_id ?? "").toLowerCase().includes(q)
+    );
+  }, [profiles, userSearch]);
+
   if (!isAdmin) {
     return (
       <div className="p-8 text-center">
         <ShieldAlert className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
         <p className="text-muted-foreground">Admin access only.</p>
+        <Link to="/admin-auth" className="text-primary text-sm underline mt-2 inline-block">Go to admin login</Link>
       </div>
     );
   }
@@ -194,6 +211,51 @@ function AdminPage() {
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   };
 
+  const cancelPayment = async (p: PaymentRow) => {
+    if (!confirm(`Cancel this payment of ₹${p.amount}? This cannot be undone.`)) return;
+    const { error } = await supabase.from("payments").update({ status: "cancelled" }).eq("id", p.id);
+    if (error) return toast.error(error.message);
+    await supabase.from("notifications").insert([
+      { user_id: p.student_id, title: "Payment cancelled", body: "Your payment has been cancelled by admin.", link: `/payment/${p.assignment_id}` },
+    ]);
+    toast.success("Payment cancelled");
+    qc.invalidateQueries({ queryKey: ["admin-payments"] });
+  };
+
+  const toggleBan = async (u: ProfileRow) => {
+    const action = u.is_banned ? "unban" : "ban";
+    if (!confirm(`${action === "ban" ? "Ban" : "Unban"} ${u.display_name}?`)) return;
+    const { error } = await supabase.from("profiles").update({ is_banned: !u.is_banned }).eq("id", u.id);
+    if (error) return toast.error(error.message);
+    toast.success(`${u.display_name} ${action === "ban" ? "banned" : "unbanned"}`);
+    qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+  };
+
+  const sendBroadcastNotif = async () => {
+    if (!notifTitle || !notifBody) return toast.error("Title and body required");
+    setSendingNotif(true);
+    try {
+      const targets = notifTarget.trim()
+        ? (profiles ?? []).filter((p) => p.display_name.toLowerCase().includes(notifTarget.toLowerCase()))
+        : (profiles ?? []);
+      if (targets.length === 0) return toast.error("No matching users found");
+      const rows = targets.map((p) => ({
+        user_id: p.id,
+        title: notifTitle,
+        body: notifBody,
+        link: "/feed",
+      }));
+      const { error } = await supabase.from("notifications").insert(rows);
+      if (error) throw error;
+      toast.success(`Notification sent to ${targets.length} user${targets.length > 1 ? "s" : ""}`);
+      setNotifTitle(""); setNotifBody(""); setNotifTarget("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send");
+    } finally {
+      setSendingNotif(false);
+    }
+  };
+
   return (
     <div className="px-4 pt-6 pb-4">
       <div className="flex items-center gap-2 mb-1">
@@ -207,15 +269,22 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="overview" className="mt-4">
-        <TabsList className="grid grid-cols-3 w-full">
+        <TabsList className="grid grid-cols-4 w-full">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="payments">
+            Payments
+            {stats.pendingVerify > 0 && (
+              <span className="ml-1 h-4 w-4 rounded-full bg-warning text-warning-foreground text-[10px] font-bold flex items-center justify-center">
+                {stats.pendingVerify}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="tools">Tools</TabsTrigger>
         </TabsList>
 
         {/* ============ OVERVIEW ============ */}
         <TabsContent value="overview" className="mt-4 space-y-4">
-          {/* Hero net-worth card */}
           <div className="rounded-3xl bg-gradient-primary p-5 text-primary-foreground shadow-glow relative overflow-hidden">
             <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
             <p className="text-xs opacity-80">Your net profit (15%)</p>
@@ -232,7 +301,6 @@ function AdminPage() {
             </div>
           </div>
 
-          {/* KPI grid */}
           <div className="grid grid-cols-2 gap-3">
             <Stat icon={Users} label="Total users" value={(stats.students + stats.writers).toString()} sub={`+${stats.newUsers7} this week`} tone="primary" />
             <Stat icon={Clock} label="Pending verify" value={stats.pendingVerify.toString()} sub="action needed" tone="warning" />
@@ -242,7 +310,6 @@ function AdminPage() {
             <Stat icon={FileText} label="Total bids" value={(bids?.length ?? 0).toString()} tone="muted" />
           </div>
 
-          {/* Revenue area chart */}
           <ChartCard title="Revenue & profit (14d)" icon={TrendingUp}>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={series} margin={{ left: -20, right: 5, top: 5 }}>
@@ -266,7 +333,6 @@ function AdminPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* Users growth */}
           <ChartCard title="New users (14d)" icon={Users}>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={series} margin={{ left: -20, right: 5, top: 5 }}>
@@ -279,36 +345,32 @@ function AdminPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* Bids line + Status pie */}
-          <div className="grid grid-cols-1 gap-4">
-            <ChartCard title="Bid activity (14d)" icon={Activity}>
-              <ResponsiveContainer width="100%" height={160}>
-                <LineChart data={series} margin={{ left: -20, right: 5, top: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
-                  <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" allowDecimals={false} />
+          <ChartCard title="Bid activity (14d)" icon={Activity}>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={series} margin={{ left: -20, right: 5, top: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" allowDecimals={false} />
+                <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                <Line type="monotone" dataKey="bids" stroke="var(--primary)" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {statusPie.length > 0 && (
+            <ChartCard title="Payment status mix" icon={Wallet}>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={statusPie} dataKey="value" nameKey="name" outerRadius={70} innerRadius={40} paddingAngle={3}>
+                    {statusPie.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  </Pie>
                   <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                  <Line type="monotone" dataKey="bids" stroke="var(--primary)" strokeWidth={2} dot={false} />
-                </LineChart>
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
               </ResponsiveContainer>
             </ChartCard>
+          )}
 
-            {statusPie.length > 0 && (
-              <ChartCard title="Payment status mix" icon={Wallet}>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie data={statusPie} dataKey="value" nameKey="name" outerRadius={70} innerRadius={40} paddingAngle={3}>
-                      {statusPie.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            )}
-          </div>
-
-          {/* Top writers */}
           <div className="rounded-2xl bg-card border border-border p-4 shadow-card">
             <div className="flex items-center gap-2 mb-3">
               <Trophy className="h-4 w-4 text-warning" />
@@ -339,7 +401,6 @@ function AdminPage() {
           <div className="space-y-3">
             {payments?.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No payments yet</p>}
             {[...(payments ?? [])].sort((a, b) => {
-              // actionable first: awaiting+screenshot, then payment_received with file
               const score = (p: PaymentRow) => {
                 const f = fileForBid(p.bid_id);
                 if (p.status === "awaiting_payment" && p.screenshot_url) return 0;
@@ -382,17 +443,18 @@ function AdminPage() {
                   <div className="text-xs space-y-1 mb-3">
                     <p><span className="text-muted-foreground">Student:</span> {p.student?.display_name}</p>
                     <p><span className="text-muted-foreground">Writer:</span> {p.writer?.display_name} {p.writer?.upi_id && <span className="font-mono text-primary">· {p.writer.upi_id}</span>}</p>
+                    <p className="text-muted-foreground">{new Date(p.created_at).toLocaleString()}</p>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
                     {p.screenshot_url && (
                       <Button size="sm" variant="outline" onClick={() => viewScreenshot(p.screenshot_url!)}>
-                        <Eye className="h-3.5 w-3.5 mr-1" />View screenshot
+                        <Eye className="h-3.5 w-3.5 mr-1" />Screenshot
                       </Button>
                     )}
                     {p.status === "awaiting_payment" && p.screenshot_url && (
                       <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground" onClick={() => markReceived(p)}>
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark payment received
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Confirm payment
                       </Button>
                     )}
                     {f && (
@@ -410,6 +472,11 @@ function AdminPage() {
                         <CheckCircle2 className="h-3 w-3" />Delivered
                       </span>
                     )}
+                    {p.status !== "cancelled" && p.status !== "file_delivered" && (
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => cancelPayment(p)}>
+                        <XCircle className="h-3.5 w-3.5 mr-1" />Cancel
+                      </Button>
+                    )}
                     <Link to="/assignment/$id" params={{ id: p.assignment_id }}>
                       <Button size="sm" variant="ghost"><ExternalLink className="h-3.5 w-3.5" /></Button>
                     </Link>
@@ -426,22 +493,115 @@ function AdminPage() {
             <Stat icon={GraduationCap} label="Students" value={stats.students.toString()} tone="primary" />
             <Stat icon={PenLine} label="Writers" value={stats.writers.toString()} tone="success" />
           </div>
-          <h2 className="font-bold mb-2 text-sm">All users · {profiles?.length ?? 0}</h2>
+
+          {/* Search */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, role, UPI…"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <h2 className="font-bold mb-2 text-sm">All users · {filteredProfiles.length}</h2>
           <div className="space-y-2">
-            {profiles?.map((u) => (
-              <div key={u.id} className="rounded-xl bg-card border border-border p-3 flex items-center justify-between shadow-card">
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm truncate">{u.display_name}</p>
+            {filteredProfiles.map((u) => (
+              <div key={u.id} className={`rounded-xl bg-card border p-3 flex items-center justify-between shadow-card ${u.is_banned ? "border-destructive/40 bg-destructive/5" : "border-border"}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm truncate">{u.display_name}</p>
+                    {u.is_banned && <span className="text-[10px] bg-destructive/15 text-destructive px-1.5 py-0.5 rounded-full font-semibold">Banned</span>}
+                  </div>
                   <p className="text-[11px] text-muted-foreground">
                     {u.role} · ★ {Number(u.rating).toFixed(1)} · {u.jobs_completed} jobs
                   </p>
                   {u.upi_id && <p className="text-[10px] font-mono text-primary truncate">{u.upi_id}</p>}
                 </div>
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                  {new Date(u.created_at).toLocaleDateString()}
-                </span>
+                <div className="flex items-center gap-2 ml-2">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {new Date(u.created_at).toLocaleDateString()}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={u.is_banned ? "text-success hover:text-success" : "text-destructive hover:text-destructive"}
+                    onClick={() => toggleBan(u)}
+                    aria-label={u.is_banned ? "Unban user" : "Ban user"}
+                  >
+                    {u.is_banned ? <RotateCcw className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
               </div>
             ))}
+            {filteredProfiles.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground py-8">No users found</p>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ============ TOOLS ============ */}
+        <TabsContent value="tools" className="mt-4 space-y-4">
+          {/* Broadcast notification */}
+          <div className="rounded-2xl bg-card border border-border p-4 shadow-card space-y-3">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" />
+              <h3 className="font-bold text-sm">Send notification</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">Leave "Target user" empty to broadcast to all users.</p>
+            <div className="space-y-2">
+              <Input
+                placeholder="Target user name (optional — blank = all)"
+                value={notifTarget}
+                onChange={(e) => setNotifTarget(e.target.value)}
+              />
+              <Input
+                placeholder="Notification title"
+                value={notifTitle}
+                onChange={(e) => setNotifTitle(e.target.value)}
+              />
+              <Input
+                placeholder="Message body"
+                value={notifBody}
+                onChange={(e) => setNotifBody(e.target.value)}
+              />
+              <Button
+                className="w-full bg-gradient-primary"
+                disabled={sendingNotif || !notifTitle || !notifBody}
+                onClick={sendBroadcastNotif}
+              >
+                {sendingNotif ? "Sending…" : `Send to ${notifTarget.trim() ? "matched users" : "all users"}`}
+              </Button>
+            </div>
+          </div>
+
+          {/* Quick links */}
+          <div className="rounded-2xl bg-card border border-border p-4 shadow-card">
+            <h3 className="font-bold text-sm mb-3">Quick links</h3>
+            <div className="space-y-2">
+              {[
+                { label: "View live feed", href: "/feed" },
+                { label: "Supabase dashboard", href: "https://supabase.com/dashboard" },
+                { label: "Terms of Service", href: "/terms" },
+                { label: "Refund Policy", href: "/refund" },
+              ].map(({ label, href }) => (
+                <a key={href} href={href} target={href.startsWith("http") ? "_blank" : "_self"} rel="noreferrer"
+                  className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-muted transition">
+                  <span>{label}</span>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Platform info */}
+          <div className="rounded-2xl bg-muted/50 border border-border p-4 text-xs text-muted-foreground space-y-1">
+            <p><span className="font-semibold text-foreground">Platform:</span> AssiMate v1.0</p>
+            <p><span className="font-semibold text-foreground">Admin email:</span> assimate007@gmail.com</p>
+            <p><span className="font-semibold text-foreground">Commission:</span> 15% per transaction</p>
+            <p><span className="font-semibold text-foreground">Total users:</span> {(stats.students + stats.writers).toLocaleString()}</p>
+            <p><span className="font-semibold text-foreground">Total revenue:</span> ₹{stats.revenue.toLocaleString()}</p>
           </div>
         </TabsContent>
       </Tabs>
