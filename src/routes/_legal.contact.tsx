@@ -32,7 +32,8 @@ function ContactPage() {
             <p className="text-xs text-muted-foreground">Report abuse or disputes</p>
           </div>
         </a>
-        <a href="https://instagram.com" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-2xl bg-card border border-border p-4 shadow-card hover:shadow-glow transition">
+        {/* FIX: Instagram link now points to actual profile, not homepage */}
+        <a href="https://instagram.com/assimate" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-2xl bg-card border border-border p-4 shadow-card hover:shadow-glow transition">
           <Instagram className="h-5 w-5 text-primary" />
           <div>
             <p className="font-semibold">@assimate</p>

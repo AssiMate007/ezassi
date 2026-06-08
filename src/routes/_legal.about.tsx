@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Sparkles, Users, ShieldCheck, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/_legal/about")({
@@ -34,6 +34,18 @@ function AboutPage() {
             <p className="text-sm text-muted-foreground mt-1">{body}</p>
           </div>
         ))}
+      </div>
+
+      {/* FIX: Added CTA section that was missing */}
+      <div className="mt-10 rounded-2xl bg-primary/5 border border-primary/20 p-8 text-center">
+        <h2 className="text-2xl font-bold">Ready to get started?</h2>
+        <p className="mt-2 text-muted-foreground">Join hundreds of students getting assignment help today.</p>
+        <Link
+          to="/auth"
+          className="inline-block mt-5 bg-gradient-primary text-primary-foreground font-semibold px-8 py-3 rounded-xl shadow-soft hover:opacity-90 transition"
+        >
+          Get started free →
+        </Link>
       </div>
     </article>
   );

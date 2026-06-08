@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,10 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Sparkles, GraduationCap, PenLine, Eye, EyeOff, Shield } from "lucide-react";
+import { Sparkles, GraduationCap, PenLine, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-
-const ADMIN_EMAIL = "assimate007@gmail.com";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -18,11 +16,8 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-type Portal = "user" | "admin";
-
 function AuthPage() {
   const navigate = useNavigate();
-  const [portal, setPortal] = useState<Portal>("user");
   const [mode, setMode] = useState<"signin" | "signup">("signup");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -31,19 +26,10 @@ function AuthPage() {
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<"student" | "writer">("student");
 
-  const isAdmin = portal === "admin";
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (isAdmin) {
-        const { error } = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password });
-        if (error) throw new Error("Invalid admin password");
-        toast.success("Welcome, Admin");
-        navigate({ to: "/admin" });
-        return;
-      }
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email, password,
@@ -53,7 +39,7 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Welcome! 🎉 You're in.");
+        toast.success("Welcome! You're in.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -76,6 +62,14 @@ function AuthPage() {
     toast.success("Reset link sent — check your inbox");
   };
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/feed` },
+    });
+    if (error) toast.error(error.message);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-hero flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-primary-foreground">
@@ -92,93 +86,93 @@ function AuthPage() {
       </div>
 
       <div className="bg-card rounded-t-3xl px-6 pt-6 pb-10 shadow-glow">
-        {/* Portal switcher */}
-        <div className="grid grid-cols-2 gap-2 mb-4 p-1 bg-muted rounded-xl">
-          <button
-            type="button"
-            onClick={() => setPortal("user")}
-            className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition ${portal === "user" ? "bg-card shadow-soft text-foreground" : "text-muted-foreground"}`}
-          >
-            <GraduationCap className="h-4 w-4" /> Student / Writer
-          </button>
-          <button
-            type="button"
-            onClick={() => { setPortal("admin"); setMode("signin"); }}
-            className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition ${portal === "admin" ? "bg-card shadow-soft text-foreground" : "text-muted-foreground"}`}
-          >
-            <Shield className="h-4 w-4" /> Admin
-          </button>
-        </div>
+        <Tabs value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+          <TabsList className="grid grid-cols-2 w-full">
+            <TabsTrigger value="signup">Sign up</TabsTrigger>
+            <TabsTrigger value="signin">Sign in</TabsTrigger>
+          </TabsList>
 
-        {!isAdmin ? (
-          <Tabs value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
-            <TabsList className="grid grid-cols-2 w-full">
-              <TabsTrigger value="signup">Sign up</TabsTrigger>
-              <TabsTrigger value="signin">Sign in</TabsTrigger>
-            </TabsList>
+          {/* Google SSO */}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full mt-5 h-11 gap-2"
+            onClick={signInWithGoogle}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908C16.618 14.215 17.64 11.927 17.64 9.2z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+              <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </Button>
 
-            <form onSubmit={submit} className="space-y-4 mt-5">
-              {mode === "signup" && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="name">Display name</Label>
-                    <Input id="name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Riya S." />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>I'm a…</Label>
-                    <RadioGroup value={role} onValueChange={(v) => setRole(v as typeof role)} className="grid grid-cols-2 gap-2">
-                      <label className={`flex items-center gap-2 rounded-xl border-2 p-3 cursor-pointer transition ${role === "student" ? "border-primary bg-primary/5" : "border-border"}`}>
-                        <RadioGroupItem value="student" className="sr-only" />
-                        <GraduationCap className="h-5 w-5 text-primary" />
-                        <span className="text-sm font-medium">Student</span>
-                      </label>
-                      <label className={`flex items-center gap-2 rounded-xl border-2 p-3 cursor-pointer transition ${role === "writer" ? "border-primary bg-primary/5" : "border-border"}`}>
-                        <RadioGroupItem value="writer" className="sr-only" />
-                        <PenLine className="h-5 w-5 text-primary" />
-                        <span className="text-sm font-medium">Writer</span>
-                      </label>
-                    </RadioGroup>
-                  </div>
-                </>
-              )}
-              <TabsContent value="signin" className="m-0" />
-              <TabsContent value="signup" className="m-0" />
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-              </div>
-              <PasswordField value={password} onChange={setPassword} show={showPassword} setShow={setShowPassword} />
-              {mode === "signin" && (
-                <button type="button" onClick={() => forgotPassword(email)} className="text-xs text-primary hover:underline block w-full text-right">
-                  Forgot password?
-                </button>
-              )}
-              <Button type="submit" disabled={loading} className="w-full h-12 text-base bg-gradient-primary shadow-soft">
-                {loading ? "…" : mode === "signup" ? "Create account" : "Sign in"}
-              </Button>
-            </form>
-          </Tabs>
-        ) : (
-          <form onSubmit={submit} className="space-y-4 mt-2">
-            <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-3 flex items-center gap-3">
-              <Shield className="h-5 w-5 text-primary" />
-              <div className="text-sm">
-                <p className="font-semibold">Admin portal</p>
-                <p className="text-xs text-muted-foreground">Owner-only access</p>
-              </div>
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground">or</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          <form onSubmit={submit} className="space-y-4">
+            {/* Role picker — only shown on Sign Up tab */}
+            {mode === "signup" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Display name</Label>
+                  <Input id="name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Riya S." />
+                </div>
+                <div className="space-y-2">
+                  <Label>I'm a…</Label>
+                  <RadioGroup value={role} onValueChange={(v) => setRole(v as typeof role)} className="grid grid-cols-2 gap-2">
+                    <label className={`flex items-center gap-2 rounded-xl border-2 p-3 cursor-pointer transition ${role === "student" ? "border-primary bg-primary/5" : "border-border"}`}>
+                      <RadioGroupItem value="student" className="sr-only" />
+                      <GraduationCap className="h-5 w-5 text-primary" />
+                      <span className="text-sm font-medium">Student</span>
+                    </label>
+                    <label className={`flex items-center gap-2 rounded-xl border-2 p-3 cursor-pointer transition ${role === "writer" ? "border-primary bg-primary/5" : "border-border"}`}>
+                      <RadioGroupItem value="writer" className="sr-only" />
+                      <PenLine className="h-5 w-5 text-primary" />
+                      <span className="text-sm font-medium">Writer</span>
+                    </label>
+                  </RadioGroup>
+                </div>
+              </>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
             </div>
             <PasswordField value={password} onChange={setPassword} show={showPassword} setShow={setShowPassword} />
+
+            {/* Forgot password — only on Sign In */}
+            {mode === "signin" && (
+              <button type="button" onClick={() => forgotPassword(email)} className="text-xs text-primary hover:underline block w-full text-right -mt-1">
+                Forgot password?
+              </button>
+            )}
+
             <Button type="submit" disabled={loading} className="w-full h-12 text-base bg-gradient-primary shadow-soft">
-              {loading ? "…" : "Enter admin panel"}
+              {loading ? "…" : mode === "signup" ? "Create account" : "Sign in"}
             </Button>
           </form>
-        )}
+        </Tabs>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
           By continuing you agree to our{" "}
           <a href="/terms" className="underline hover:text-foreground">Terms</a> &{" "}
           <a href="/privacy" className="underline hover:text-foreground">Privacy Policy</a>.
         </p>
+
+        {/* Footer links on auth page */}
+        <div className="mt-6 pt-4 border-t border-border flex flex-wrap gap-x-4 gap-y-1 justify-center">
+          <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground">Terms</Link>
+          <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground">Privacy</Link>
+          <Link to="/refund" className="text-xs text-muted-foreground hover:text-foreground">Refunds</Link>
+          <Link to="/about" className="text-xs text-muted-foreground hover:text-foreground">About</Link>
+          <Link to="/contact" className="text-xs text-muted-foreground hover:text-foreground">Contact</Link>
+        </div>
       </div>
     </div>
   );

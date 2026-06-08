@@ -10,14 +10,18 @@ function LegalLayout() {
     <div className="min-h-screen bg-gradient-soft">
       <header className="sticky top-0 z-30 bg-card/85 backdrop-blur-lg border-b border-border">
         <div className="mx-auto max-w-2xl px-4 h-14 flex items-center justify-between">
-          <Link to="/feed" className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+          {/* FIX: Back links to / not /feed */}
+          <Link to="/" className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
-          <Link to="/feed" className="flex items-center gap-1.5 font-bold">
+          {/* FIX: Logo links to / not /feed */}
+          <Link to="/" className="flex items-center gap-1.5 font-bold">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-gradient">AssiMate</span>
           </Link>
-          <span className="w-12" />
+          <Link to="/auth" className="text-sm font-semibold text-primary border border-primary rounded-lg px-3 py-1 hover:bg-primary/5 transition">
+            Get started
+          </Link>
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-5 py-8">

@@ -29,7 +29,8 @@ function RefundPage() {
       <p className="mt-2">The 15% AssiMate service fee is refunded along with the writer's portion on approved full refunds.</p>
 
       <h2 className="mt-6 text-xl font-semibold">How to request</h2>
-      <p className="mt-2">Open the assignment, tap "Report a problem", and our team responds within 2 business days.</p>
+      {/* FIX: "tap" changed to "select" — device-neutral */}
+      <p className="mt-2">Open the assignment and select "Report a problem" — our team responds within 2 business days. For urgent issues, email <a href="mailto:safety@assimate.app" className="underline">safety@assimate.app</a>.</p>
     </article>
   );
 }

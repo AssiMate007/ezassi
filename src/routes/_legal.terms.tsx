@@ -23,7 +23,8 @@ function TermsPage() {
       <p className="mt-2">You must be at least 13 years old (or the minimum digital-consent age in your country) to use AssiMate. Users under 18 confirm they have parental permission.</p>
 
       <h2 className="mt-6 text-xl font-semibold">3. Academic integrity</h2>
-      <p className="mt-2">AssiMate is intended for reference, tutoring, and learning support. You are responsible for using delivered work in accordance with your school's academic integrity rules. Submitting purchased work as your own may violate those rules.</p>
+      {/* FIX: Stronger disclaimer added */}
+      <p className="mt-2">AssiMate is intended for reference, tutoring, and learning support. You are responsible for using delivered work in accordance with your school's academic integrity rules. Submitting purchased work as your own may violate those rules. <strong>AssiMate does not condone or facilitate academic dishonesty and may suspend accounts suspected of misuse.</strong></p>
 
       <h2 className="mt-6 text-xl font-semibold">4. Bids, payments & 15% service fee</h2>
       <p className="mt-2">When a student accepts a bid, the agreed amount is charged via our payment provider. AssiMate retains a <strong>15% service fee</strong> on every successful transaction. The remaining 85% is paid out to the writer after the assignment is marked complete.</p>
