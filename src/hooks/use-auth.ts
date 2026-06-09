@@ -10,6 +10,8 @@ export interface Profile {
   bio: string | null;
   rating: number;
   jobs_completed: number;
+  upi_id?: string | null;
+  is_banned?: boolean;
 }
 
 type AuthState = {
@@ -32,7 +34,11 @@ function setState(next: Partial<AuthState>) {
 function fetchProfile(userId: string) {
   if (lastProfileFetchFor === userId) return;
   lastProfileFetchFor = userId;
-  supabase.from("profiles").select("*").eq("id", userId).single()
+  supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single()
     .then(({ data }) => setState({ profile: (data as Profile | null) ?? null }));
 }
 
@@ -41,7 +47,7 @@ function init() {
   initialized = true;
 
   supabase.auth.onAuthStateChange((_e, s) => {
-    setState({ session: s, user: s?.user ?? null });
+    setState({ session: s, user: s?.user ?? null, loading: false });
     if (s?.user) {
       fetchProfile(s.user.id);
     } else {

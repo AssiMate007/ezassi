@@ -5,23 +5,38 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Star, LogOut, GraduationCap, PenLine, Wallet, CheckCircle2 } from "lucide-react";
+import { Star, LogOut, GraduationCap, PenLine, Wallet, CheckCircle2, Eye, EyeOff, Shield } from "lucide-react";
 import { AssignmentCard } from "@/components/AssignmentCard";
 import { toast } from "sonner";
+import { useIsAdmin } from "@/hooks/use-admin";
+import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
 });
 
+function Avatar({ name, size = 80 }: { name: string; size?: number }) {
+  const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  return (
+    <div
+      className="rounded-full flex items-center justify-center font-bold text-white bg-gradient-primary ring-4 ring-white/30 shadow-glow"
+      style={{ width: size, height: size, fontSize: size * 0.34 }}
+    >
+      {initials}
+    </div>
+  );
+}
+
 function ProfilePage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
   const [upiId, setUpiId] = useState("");
+  const [showUpi, setShowUpi] = useState(false); // FIX: UPI hidden by default
   const [savingUpi, setSavingUpi] = useState(false);
 
   useEffect(() => {
-    if (profile && "upi_id" in profile) setUpiId((profile as { upi_id?: string | null }).upi_id ?? "");
+    if (profile?.upi_id !== undefined) setUpiId(profile.upi_id ?? "");
   }, [profile]);
 
   const saveUpi = async () => {
@@ -36,8 +51,6 @@ function ProfilePage() {
     if (error) return toast.error(error.message);
     toast.success("UPI ID saved ✓");
   };
-
-
 
   const { data: myAssignments } = useQuery({
     queryKey: ["my-assignments", user?.id, profile?.role],
@@ -59,59 +72,95 @@ function ProfilePage() {
     navigate({ to: "/auth" });
   };
 
-  if (!profile) return <div className="p-8 text-center text-muted-foreground">Loading…</div>;
+  if (!profile) return (
+    <div className="p-8 space-y-3">
+      {[80, 40, 24, 24].map((h, i) => (
+        <div key={i} className={`h-${h === 80 ? "20" : h === 40 ? "10" : "6"} rounded-xl shimmer`} />
+      ))}
+    </div>
+  );
+
+  const maskedUpi = profile.upi_id
+    ? profile.upi_id.replace(/^(.{3}).*(@.*)$/, (_, a, b) => `${a}${"•".repeat(6)}${b}`)
+    : null;
 
   return (
-    <div>
-      <div className="bg-gradient-hero pt-10 pb-16 px-4 text-primary-foreground text-center rounded-b-3xl">
-        <Avatar className="h-20 w-20 mx-auto ring-4 ring-white/30">
-          <AvatarFallback className="text-2xl bg-white/20 text-primary-foreground">
-            {profile.display_name.charAt(0)}
-          </AvatarFallback>
-        </Avatar>
-        <h1 className="mt-3 text-xl font-bold">{profile.display_name}</h1>
-        <div className="mt-1 flex items-center justify-center gap-1.5 text-sm text-primary-foreground/90">
-          {profile.role === "student" ? <GraduationCap className="h-4 w-4" /> : <PenLine className="h-4 w-4" />}
-          <span className="capitalize">{profile.role}</span>
-        </div>
-        <div className="mt-4 flex justify-center gap-6">
-          <div>
-            <div className="flex items-center justify-center gap-1 text-lg font-bold">
-              <Star className="h-4 w-4 fill-warning text-warning" />
-              {Number(profile.rating).toFixed(1)}
-            </div>
-            <p className="text-xs text-primary-foreground/80">Rating</p>
+    <div className="pb-4">
+      {/* Hero */}
+      <div className="bg-gradient-hero px-4 pt-12 pb-20 text-primary-foreground relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/5" />
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-black/10 blur-3xl pointer-events-none" />
+        <div className="relative flex flex-col items-center text-center">
+          <Avatar name={profile.display_name} size={84} />
+          <h1 className="mt-4 text-2xl font-bold">{profile.display_name}</h1>
+          <div className="mt-1.5 flex items-center gap-1.5 text-sm text-primary-foreground/85">
+            {profile.role === "student" ? <GraduationCap className="h-4 w-4" /> : <PenLine className="h-4 w-4" />}
+            <span className="capitalize font-medium">{profile.role}</span>
           </div>
-          <div className="w-px bg-white/30" />
-          <div>
-            <div className="text-lg font-bold">{profile.jobs_completed}</div>
-            <p className="text-xs text-primary-foreground/80">{profile.role === "student" ? "Assignments" : "Jobs done"}</p>
+          {isAdmin && (
+            <Link to="/admin" className="mt-2 flex items-center gap-1.5 text-xs bg-white/20 backdrop-blur-sm border border-white/30 px-3 py-1.5 rounded-full font-semibold">
+              <Shield className="h-3.5 w-3.5" /> Admin Panel
+            </Link>
+          )}
+          <div className="mt-5 flex gap-8">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 text-xl font-bold">
+                <Star className="h-4 w-4 fill-yellow-300 text-yellow-300" />
+                {Number(profile.rating).toFixed(1)}
+              </div>
+              <p className="text-xs text-primary-foreground/70 mt-0.5">Rating</p>
+            </div>
+            <div className="w-px bg-white/25" />
+            <div className="text-center">
+              <div className="text-xl font-bold">{profile.jobs_completed}</div>
+              <p className="text-xs text-primary-foreground/70 mt-0.5">
+                {profile.role === "student" ? "Assignments" : "Jobs done"}
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="px-4 -mt-8">
-        <div className="bg-card rounded-2xl p-4 shadow-card border border-border mb-4">
-          {profile.bio ? (
-            <p className="text-sm text-muted-foreground">{profile.bio}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">No bio yet</p>
-          )}
+      <div className="px-4 -mt-10 relative z-10 space-y-4">
+        {/* Bio card */}
+        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
+          <p className="text-sm text-muted-foreground">
+            {profile.bio ?? <span className="italic">No bio yet — add one to attract more mates!</span>}
+          </p>
         </div>
 
-        <div className="bg-card rounded-2xl p-4 shadow-card border border-border mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Wallet className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-sm">UPI ID for payouts</h3>
-            {profile && (profile as { upi_id?: string | null }).upi_id && (
-              <CheckCircle2 className="h-4 w-4 text-success ml-auto" />
-            )}
+        {/* UPI card — FIX: UPI masked by default, show/hide toggle */}
+        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="h-8 w-8 rounded-xl bg-gradient-primary flex items-center justify-center shadow-soft">
+              <Wallet className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <h3 className="font-semibold text-sm flex-1">UPI for payouts</h3>
+            {profile.upi_id && <CheckCircle2 className="h-4 w-4 text-success" />}
           </div>
           <p className="text-xs text-muted-foreground mb-3">
             {profile.role === "writer"
-              ? "Required to receive your 85% payout once an assignment is released."
-              : "Optional — used only if a refund needs to be sent to you."}
+              ? "Required to receive your 85% payout."
+              : "Optional — for refunds only."}
           </p>
+
+          {/* Show existing UPI masked */}
+          {profile.upi_id && (
+            <div className="mb-3 flex items-center gap-2 bg-muted/60 rounded-xl px-3 py-2">
+              <span className="text-sm font-mono text-foreground flex-1">
+                {showUpi ? profile.upi_id : maskedUpi}
+              </span>
+              <button
+                onClick={() => setShowUpi(!showUpi)}
+                className="text-muted-foreground hover:text-foreground transition"
+                aria-label={showUpi ? "Hide UPI" : "Show UPI"}
+              >
+                {showUpi ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Input
               placeholder="yourname@okhdfcbank"
@@ -120,40 +169,48 @@ function ProfilePage() {
               maxLength={100}
               autoCapitalize="none"
               autoCorrect="off"
+              className="rounded-xl"
             />
-            <Button onClick={saveUpi} disabled={savingUpi} className="bg-gradient-primary">
+            <Button onClick={saveUpi} disabled={savingUpi} className="bg-gradient-primary rounded-xl shrink-0">
               {savingUpi ? "…" : "Save"}
             </Button>
           </div>
         </div>
 
-        <h2 className="font-bold mb-3">{profile.role === "student" ? "My assignments" : "My bids"}</h2>
-        <div className="space-y-3">
-          {!myAssignments?.length && (
-            <p className="text-sm text-muted-foreground text-center py-6">Nothing here yet</p>
-          )}
-          {myAssignments?.map((a) => a && (
-            <AssignmentCard key={a.id} a={{
-              id: a.id, title: a.title, subject: a.subject,
-              budget_min: a.budget_min, budget_max: a.budget_max, deadline: a.deadline,
-              bid_count: (a as { bids?: { count: number }[] }).bids?.[0]?.count,
-            }} />
-          ))}
+        {/* Assignments */}
+        <div>
+          <h2 className="font-bold text-base mb-3">
+            {profile.role === "student" ? "My assignments" : "My bids"}
+          </h2>
+          <div className="space-y-3">
+            {!myAssignments?.length && (
+              <div className="text-center py-10 bg-card rounded-3xl border border-border">
+                <div className="text-4xl mb-2">📭</div>
+                <p className="text-sm text-muted-foreground">Nothing here yet</p>
+              </div>
+            )}
+            {myAssignments?.map((a) => a && (
+              <AssignmentCard key={a.id} a={{
+                id: a.id, title: a.title, subject: a.subject,
+                budget_min: a.budget_min, budget_max: a.budget_max, deadline: a.deadline,
+                bid_count: (a as { bids?: { count: number }[] }).bids?.[0]?.count,
+              }} />
+            ))}
+          </div>
         </div>
 
-
-        <Button variant="outline" onClick={signOut} className="w-full mt-4">
+        {/* Sign out */}
+        <Button variant="outline" onClick={signOut} className="w-full rounded-2xl mt-2 text-muted-foreground">
           <LogOut className="h-4 w-4 mr-2" />Sign out
         </Button>
 
-        <div className="mt-6 pt-5 border-t border-border flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-          <a href="/about" className="hover:text-foreground">About</a>
-          <a href="/terms" className="hover:text-foreground">Terms</a>
-          <a href="/privacy" className="hover:text-foreground">Privacy</a>
-          <a href="/refund" className="hover:text-foreground">Refunds</a>
-          <a href="/contact" className="hover:text-foreground">Contact</a>
+        {/* Footer links */}
+        <div className="pt-4 border-t border-border flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+          {[["About", "/about"], ["Terms", "/terms"], ["Privacy", "/privacy"], ["Refunds", "/refund"], ["Contact", "/contact"]].map(([l, h]) => (
+            <a key={h} href={h} className="hover:text-primary transition">{l}</a>
+          ))}
         </div>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">© {new Date().getFullYear()} AssiMate</p>
+        <p className="text-center text-[11px] text-muted-foreground">© {new Date().getFullYear()} AssiMate</p>
       </div>
     </div>
   );
