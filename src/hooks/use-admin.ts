@@ -1,32 +1,42 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "./use-auth";
 
+// Simple, standalone hook — no React Query cache issues
 export function useIsAdmin() {
-  const { user, loading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["is-admin", user?.id],
-    // FIX: wait until auth is no longer loading before querying
-    enabled: !!user && !loading,
-    staleTime: 1000 * 60 * 5, // cache for 5 min
-    queryFn: async () => {
-      // Double-check: query user_roles with RLS
-      const { data, error } = await supabase
+  useEffect(() => {
+    let cancelled = false;
+
+    async function check(userId: string) {
+      const { data } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user!.id)
+        .eq("user_id", userId)
         .eq("role", "admin")
         .maybeSingle();
-      if (error) {
-        console.error("Admin check error:", error.message);
-        return false;
-      }
-      return !!data;
-    },
-  });
+      if (!cancelled) setIsAdmin(!!data);
+    }
 
-  // Return false while still loading — never flash admin UI
-  if (loading || isLoading) return false;
-  return !!data;
+    // Check on mount if already signed in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && !cancelled) check(session.user.id);
+    });
+
+    // Re-check whenever auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session?.user) {
+        check(session.user.id);
+      } else {
+        if (!cancelled) setIsAdmin(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  return isAdmin;
 }
