@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const OWNER_UPI  = "neil.zachariahelias@okhdfcbank";
+const OWNER_UPI = "neil.zachariahelias@okhdfcbank";
 const OWNER_NAME = "AssiMate";
 
 export const Route = createFileRoute("/_app/payment/$id")({
@@ -25,9 +25,9 @@ function PaymentPage() {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const screenshotRef = useRef<HTMLInputElement>(null);
-  const [uploading,    setUploading]    = useState(false);
-  const [downloading,  setDownloading]  = useState(false);
-  const [starting,     setStarting]     = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   const { data: assignment } = useQuery({
     queryKey: ["assignment", id],
@@ -83,42 +83,46 @@ function PaymentPage() {
   useEffect(() => {
     const ch = supabase
       .channel(`pay-${id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "payments",         filter: `assignment_id=eq.${id}` }, () => refetchPayment())
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments", filter: `assignment_id=eq.${id}` }, () => refetchPayment())
       .on("postgres_changes", { event: "*", schema: "public", table: "assignment_files", filter: `assignment_id=eq.${id}` }, () => refetchFile())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [id]);
+  }, [id, refetchPayment, refetchFile]);
 
-  if (!assignment) return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="text-sm text-muted-foreground">Loading…</p>
-    </div>
-  );
+  if (!assignment)
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    );
 
-  if (!acceptedBid) return (
-    <div className="p-6 text-center">
-      <div className="text-5xl mb-3">🤝</div>
-      <p className="font-semibold">No accepted bid yet</p>
-      <p className="text-sm text-muted-foreground mt-1 mb-4">Accept a bid first to proceed with payment.</p>
-      <Link to="/assignment/$id" params={{ id }} className="text-primary underline text-sm">← Back to assignment</Link>
-    </div>
-  );
+  if (!acceptedBid)
+    return (
+      <div className="p-6 text-center">
+        <div className="text-5xl mb-3">🤝</div>
+        <p className="font-semibold">No accepted bid yet</p>
+        <p className="text-sm text-muted-foreground mt-1 mb-4">Accept a bid first to proceed with payment.</p>
+        <Link to="/assignment/$id" params={{ id }} className="text-primary underline text-sm">← Back to assignment</Link>
+      </div>
+    );
 
   const isStudent = user?.id === assignment.student_id;
-  const isWriter  = user?.id === acceptedBid.writer_id;
-  const amount      = acceptedBid.amount;
-  const commission  = Math.round(amount * 0.15);
+  const isWriter = user?.id === acceptedBid.writer_id;
+  const amount = acceptedBid.amount;
+  const commission = Math.round(amount * 0.15);
   const writerPayout = amount - commission;
 
-  const copy = (text: string) => { navigator.clipboard.writeText(text); toast.success("Copied!"); };
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied!");
+  };
 
   const startPayment = async () => {
     if (!user) return toast.error("Not signed in");
     if (!acceptedBid) return toast.error("No accepted bid");
     setStarting(true);
     try {
-      // Check for existing payment first
       const { data: existing, error: checkErr } = await supabase
         .from("payments")
         .select("id, status")
@@ -137,19 +141,18 @@ function PaymentPage() {
         .from("payments")
         .insert({
           assignment_id: id,
-          bid_id:        acceptedBid.id,
-          student_id:    assignment.student_id,
-          writer_id:     acceptedBid.writer_id,
+          bid_id: acceptedBid.id,
+          student_id: assignment.student_id,
+          writer_id: acceptedBid.writer_id,
           amount,
           commission,
           writer_payout: writerPayout,
-          status:        "awaiting_payment",
+          status: "awaiting_payment",
         })
         .select()
         .single();
 
       if (insertErr) {
-        // Duplicate = already exists
         if (insertErr.code === "23505") {
           await refetchPayment();
           return;
@@ -193,8 +196,8 @@ function PaymentPage() {
           admins.map((a) => ({
             user_id: a.user_id,
             title: "💰 New payment screenshot",
-            body:  `₹${amount} for "${assignment.title}" — verify now`,
-            link:  "/admin",
+            body: `₹${amount} for "${assignment.title}" — verify now`,
+            link: "/admin",
           }))
         );
       }
@@ -202,6 +205,47 @@ function PaymentPage() {
       await refetchPayment();
     } catch (err: any) {
       console.error("uploadScreenshot error:", err);
+      toast.error(err?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const uploadWriterFile = async (f: File) => {
+    if (!user || !acceptedBid) return;
+    if (f.size > 25 * 1024 * 1024) return toast.error("File must be under 25 MB");
+    setUploading(true);
+    try {
+      const path = `${user.id}/assignment-${id}-${Date.now()}-${f.name}`;
+      const { error: upErr } = await supabase.storage
+        .from("assignment-files")
+        .upload(path, f, { upsert: true });
+      if (upErr) throw upErr;
+
+      const { error: dbErr } = await supabase.from("assignment_files").upsert({
+        assignment_id: id,
+        bid_id: acceptedBid.id,
+        writer_id: user.id,
+        storage_path: path,
+        file_name: f.name,
+        file_size: f.size,
+        released: false,
+      }, { onConflict: "bid_id" });
+      if (dbErr) throw dbErr;
+
+      await supabase.from("notifications").insert([
+        { user_id: assignment!.student_id, title: "Writer uploaded your file! 📄", body: "Admin is reviewing. You'll be notified when released.", link: `/payment/${id}` },
+      ]);
+      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+      if (admins?.length)
+        await supabase.from("notifications").insert(
+          admins.map((a) => ({ user_id: a.user_id, title: "File ready to release 📤", body: assignment!.title, link: "/admin" }))
+        );
+      toast.success("File uploaded! Locked until admin releases it.");
+      qc.invalidateQueries({ queryKey: ["assignment-file", id] });
+      refetchFile();
+    } catch (err: any) {
+      console.error("uploadWriterFile error:", err);
       toast.error(err?.message ?? "Upload failed");
     } finally {
       setUploading(false);
@@ -221,23 +265,27 @@ function PaymentPage() {
 
   return (
     <div className="px-4 pt-6 pb-10 max-w-md mx-auto">
-      <button onClick={() => navigate({ to: "/assignment/$id", params: { id } })}
-        className="mb-4 text-muted-foreground flex items-center gap-1.5 text-sm hover:text-foreground transition">
+      <button
+        onClick={() => navigate({ to: "/assignment/$id", params: { id } })}
+        className="mb-4 text-muted-foreground flex items-center gap-1.5 text-sm hover:text-foreground transition"
+      >
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
       <h1 className="text-2xl font-bold mb-1">Payment</h1>
       <p className="text-sm text-muted-foreground line-clamp-1 mb-5">{assignment.title}</p>
 
-      {/* Amount hero */}
       <div className="rounded-3xl bg-gradient-primary p-5 text-primary-foreground shadow-glow mb-5 relative overflow-hidden">
         <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative">
           <p className="text-xs uppercase tracking-widest opacity-75 mb-1">Amount</p>
           <div className="flex items-center text-4xl font-bold">
-            <IndianRupee className="h-8 w-8" />{amount}
+            <IndianRupee className="h-8 w-8" />
+            {amount}
           </div>
-          <p className="text-sm mt-2 opacity-80">Writer: <strong>{acceptedBid.writer?.display_name}</strong></p>
+          <p className="text-sm mt-2 opacity-80">
+            Writer: <strong>{acceptedBid.writer?.display_name}</strong>
+          </p>
           <div className="flex gap-3 mt-3 text-xs">
             <div className="bg-white/15 rounded-xl px-3 py-1.5">
               <p className="opacity-75">Platform (15%)</p>
@@ -251,30 +299,43 @@ function PaymentPage() {
         </div>
       </div>
 
-      {/* ── STEP 1: Start ── */}
       {isStudent && !payment && (
         <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4">
           <div className="flex items-center gap-3 mb-4">
-            <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">1</div>
+            <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">
+              1
+            </div>
             <div>
               <p className="font-semibold">Ready to pay?</p>
               <p className="text-xs text-muted-foreground">Tap to see UPI details</p>
             </div>
           </div>
-          <Button onClick={startPayment} disabled={starting}
-            className="w-full h-12 text-base font-semibold bg-gradient-primary shadow-soft rounded-2xl">
-            {starting
-              ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Setting up…</span>
-              : <span className="flex items-center gap-2"><IndianRupee className="h-5 w-5" />Pay now — ₹{amount}</span>}
+          <Button
+            onClick={startPayment}
+            disabled={starting}
+            className="w-full h-12 text-base font-semibold bg-gradient-primary shadow-soft rounded-2xl"
+          >
+            {starting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Setting up…
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <IndianRupee className="h-5 w-5" />
+                Pay now — ₹{amount}
+              </span>
+            )}
           </Button>
         </div>
       )}
 
-      {/* ── STEP 2: QR ── */}
       {payment && payment.status === "awaiting_payment" && isStudent && (
         <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4">
           <div className="flex items-center gap-3 mb-4">
-            <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">2</div>
+            <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">
+              2
+            </div>
             <div>
               <p className="font-semibold">Pay via UPI</p>
               <p className="text-xs text-muted-foreground">GPay · PhonePe · Paytm · any UPI app</p>
@@ -294,38 +355,66 @@ function PaymentPage() {
             <div className="flex items-center justify-between bg-primary/8 rounded-2xl px-4 py-3">
               <div>
                 <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Pay exactly</p>
-                <p className="font-bold text-lg text-primary flex items-center"><IndianRupee className="h-4 w-4" />{amount}</p>
+                <p className="font-bold text-lg text-primary flex items-center">
+                  <IndianRupee className="h-4 w-4" />
+                  {amount}
+                </p>
               </div>
               <Button size="sm" variant="ghost" onClick={() => copy(String(amount))} className="rounded-xl">
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-xs text-center text-muted-foreground">Name: <strong>{OWNER_NAME}</strong></p>
+            <p className="text-xs text-center text-muted-foreground">
+              Name: <strong>{OWNER_NAME}</strong>
+            </p>
           </div>
 
-          {/* Step 3: Screenshot */}
           <div className="border-t border-border pt-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">3</div>
+              <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">
+                3
+              </div>
               <div>
                 <p className="font-semibold">Upload screenshot</p>
                 <p className="text-xs text-muted-foreground">After paying — upload proof</p>
               </div>
             </div>
 
-            <input ref={screenshotRef} type="file" accept="image/*" hidden
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadScreenshot(f); e.target.value = ""; }} />
+            <input
+              ref={screenshotRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadScreenshot(f);
+                e.target.value = "";
+              }}
+            />
 
             <Button
               onClick={() => screenshotRef.current?.click()}
               disabled={uploading}
-              className={`w-full h-12 rounded-2xl font-semibold ${payment.screenshot_url ? "bg-success hover:bg-success/90 text-success-foreground" : "bg-gradient-primary"}`}
+              className={`w-full h-12 rounded-2xl font-semibold ${
+                payment.screenshot_url ? "bg-success hover:bg-success/90 text-success-foreground" : "bg-gradient-primary"
+              }`}
             >
-              {uploading
-                ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Uploading…</span>
-                : payment.screenshot_url
-                  ? <span className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" />Screenshot uploaded ✓</span>
-                  : <span className="flex items-center gap-2"><Upload className="h-5 w-5" />Upload payment screenshot</span>}
+              {uploading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading…
+                </span>
+              ) : payment.screenshot_url ? (
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Screenshot uploaded ✓
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Upload payment screenshot
+                </span>
+              )}
             </Button>
 
             {payment.screenshot_url && (
@@ -338,20 +427,20 @@ function PaymentPage() {
         </div>
       )}
 
-      {/* Payment confirmed */}
       {payment?.status === "payment_received" && (
         <div className="rounded-3xl bg-success/10 border border-success/30 p-5 mb-4">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="h-6 w-6 text-success shrink-0 mt-0.5" />
             <div>
               <p className="font-bold text-success">Payment confirmed ✓</p>
-              <p className="text-sm text-muted-foreground mt-1">Writer is working on your assignment. You'll be notified when the file is ready.</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Writer is working on your assignment. You'll be notified when the file is ready.
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* File ready */}
       {payment && file?.released && (
         <div className="rounded-3xl bg-gradient-primary p-5 text-primary-foreground shadow-glow mb-4">
           <div className="flex items-center gap-3 mb-4">
@@ -361,16 +450,26 @@ function PaymentPage() {
               <p className="text-sm opacity-80">{file.file_name}</p>
             </div>
           </div>
-          <Button onClick={downloadFile} disabled={downloading}
-            className="w-full h-12 bg-white/20 hover:bg-white/30 backdrop-blur border border-white/30 text-white font-semibold rounded-2xl">
-            {downloading
-              ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Preparing…</span>
-              : <span className="flex items-center gap-2"><Download className="h-5 w-5" />Download file</span>}
+          <Button
+            onClick={downloadFile}
+            disabled={downloading}
+            className="w-full h-12 bg-white/20 hover:bg-white/30 backdrop-blur border border-white/30 text-white font-semibold rounded-2xl"
+          >
+            {downloading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Preparing…
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Download file
+              </span>
+            )}
           </Button>
         </div>
       )}
 
-      {/* File uploaded, not released yet */}
       {payment && file && !file.released && payment.status === "payment_received" && (
         <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4">
           <div className="flex items-center gap-3">
@@ -383,28 +482,49 @@ function PaymentPage() {
         </div>
       )}
 
-      {/* Writer view */}
       {isWriter && (
         <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4">
           <h3 className="font-bold mb-3">Writer: Upload completed work</h3>
-          <div className={`text-xs px-3 py-2 rounded-xl mb-3 font-medium flex items-center gap-2 ${
-            !payment ? "bg-warning/10 text-warning" :
-            payment.status === "payment_received" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-          }`}>
+          <div
+            className={`text-xs px-3 py-2 rounded-xl mb-3 font-medium flex items-center gap-2 ${
+              !payment
+                ? "bg-warning/10 text-warning"
+                : payment.status === "payment_received"
+                ? "bg-success/10 text-success"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
             <Clock className="h-3.5 w-3.5" />
-            Payment: <strong className="ml-1">{payment?.status?.replace(/_/g," ") ?? "not started"}</strong>
+            Payment: <strong className="ml-1">{payment?.status?.replace(/_/g, " ") ?? "not started"}</strong>
           </div>
-          <input ref={fileRef} type="file" hidden
+          <input
+            ref={fileRef}
+            type="file"
+            hidden
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (!f) return;
               uploadWriterFile(f);
               e.target.value = "";
-            }} />
-          <Button onClick={() => fileRef.current?.click()} disabled={uploading} variant="outline" className="w-full rounded-2xl">
-            {uploading
-              ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Uploading…</span>
-              : <span className="flex items-center gap-2"><Upload className="h-4 w-4" />{file ? "Replace uploaded file" : "Upload completed assignment"}</span>}
+            }}
+          />
+          <Button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            variant="outline"
+            className="w-full rounded-2xl"
+          >
+            {uploading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Uploading…
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                {file ? "Replace uploaded file" : "Upload completed assignment"}
+              </span>
+            )}
           </Button>
           {file && (
             <div className="mt-2 flex items-center gap-2 bg-muted/50 rounded-xl px-3 py-2 text-xs text-muted-foreground">
@@ -426,49 +546,17 @@ function PaymentPage() {
         Secured by AssiMate · Verified by admin
       </div>
 
-      <button onClick={() => { refetchPayment(); refetchFile(); toast.success("Refreshed"); }}
-        className="mt-3 w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-primary transition py-2">
-        <RefreshCw className="h-3.5 w-3.5" />Check for updates
+      <button
+        onClick={() => {
+          refetchPayment();
+          refetchFile();
+          toast.success("Refreshed");
+        }}
+        className="mt-3 w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-primary transition py-2"
+      >
+        <RefreshCw className="h-3.5 w-3.5" />
+        Check for updates
       </button>
     </div>
   );
-
-  async function uploadWriterFile(f: File) {
-    if (!user || !acceptedBid) return;
-    if (f.size > 25 * 1024 * 1024) return toast.error("File must be under 25 MB");
-    setUploading(true);
-    try {
-      const path = `${user.id}/assignment-${id}-${Date.now()}-${f.name}`;
-      const { error: upErr } = await supabase.storage
-        .from("assignment-files").upload(path, f, { upsert: true });
-      if (upErr) throw upErr;
-
-      const { error: dbErr } = await supabase.from("assignment_files").upsert({
-        assignment_id: id,
-        bid_id:        acceptedBid.id,
-        writer_id:     user.id,
-        storage_path:  path,
-        file_name:     f.name,
-        file_size:     f.size,
-        released:      false,
-      }, { onConflict: "bid_id" });
-      if (dbErr) throw dbErr;
-
-      await supabase.from("notifications").insert([
-        { user_id: assignment!.student_id, title: "Writer uploaded your file! 📄", body: "Admin is reviewing. You'll be notified when released.", link: `/payment/${id}` },
-      ]);
-      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role","admin");
-      if (admins?.length) await supabase.from("notifications").insert(
-        admins.map((a) => ({ user_id: a.user_id, title: "File ready to release 📤", body: assignment!.title, link: "/admin" }))
-      );
-      toast.success("File uploaded! Locked until admin releases it.");
-      qc.invalidateQueries({ queryKey: ["assignment-file", id] });
-      refetchFile();
-    } catch (err: any) {
-      console.error("uploadWriterFile error:", err);
-      toast.error(err?.message ?? "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
 }
