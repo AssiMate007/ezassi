@@ -68,7 +68,7 @@ function AssignmentPage() {
   });
 
   const isOwner = user?.id === assignment?.student_id;
-  const isWriter = profile?.role === "writer";
+  const isWriter = true; // Anyone can bid
   const myBid = bids?.find((b) => b.writer_id === user?.id);
   const hasAccepted = !!assignment?.accepted_bid_id;
   const deadline = assignment ? new Date(assignment.deadline) : null;

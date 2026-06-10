@@ -34,7 +34,8 @@ function PostPage() {
   const [loading,     setLoading]     = useState(false);
 
   // Writers can't post — only students
-  if (profile?.role === "writer") return (
+  // Role check removed — anyone can post
+  if (false) return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
       <div className="text-6xl mb-4">✍️</div>
       <h2 className="text-xl font-bold">You're a writer</h2>
