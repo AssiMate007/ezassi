@@ -22,19 +22,33 @@ export const Route = createFileRoute("/_app/admin")({
 });
 
 interface PaymentRow {
-  id: string; assignment_id: string; bid_id: string; student_id: string; writer_id: string;
-  amount: number; commission: number; writer_payout: number;
+  id: string;
+  assignment_id: string;
+  bid_id: string;
+  student_id: string;
+  writer_id: string;
+  amount: number;
+  commission: number;
+  writer_payout: number;
   screenshot_url: string | null;
   status: "awaiting_payment" | "payment_received" | "file_delivered" | "cancelled";
-  created_at: string; payment_received_at: string | null; released_at: string | null;
+  created_at: string;
+  payment_received_at: string | null;
+  released_at: string | null;
   assignment: { title: string; subject: string } | null;
   student: { display_name: string; upi_id: string | null } | null;
   writer: { display_name: string; upi_id: string | null } | null;
 }
 
 interface ProfileRow {
-  id: string; display_name: string; role: "student" | "writer"; created_at: string;
-  rating: number; jobs_completed: number; upi_id: string | null; is_banned?: boolean;
+  id: string;
+  display_name: string;
+  role: "student" | "writer";
+  created_at: string;
+  rating: number;
+  jobs_completed: number;
+  upi_id: string | null;
+  is_banned?: boolean;
 }
 
 const CHART_COLORS = ["var(--primary)", "var(--success)", "var(--warning)", "var(--muted-foreground)"];
@@ -49,7 +63,6 @@ function AdminPage() {
   const [sendingNotif, setSendingNotif] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  // FIX: manual refetch helper
   const refetchAll = () => {
     qc.invalidateQueries({ queryKey: ["admin-payments"] });
     qc.invalidateQueries({ queryKey: ["admin-files"] });
@@ -63,13 +76,14 @@ function AdminPage() {
   const { data: payments, isLoading: paymentsLoading, refetch: refetchPayments } = useQuery({
     queryKey: ["admin-payments"],
     enabled: isAdmin,
-    // FIX: no staleTime — always fresh
     staleTime: 0,
-    refetchInterval: 15_000, // auto-refresh every 15s
+    refetchInterval: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payments")
-        .select(`*, assignment:assignments(title,subject), student:profiles!payments_student_id_fkey(display_name,upi_id), writer:profiles!payments_writer_id_fkey(display_name,upi_id)`)
+        .select(
+          `*, assignment:assignments(title,subject), student:profiles!payments_student_id_fkey(display_name,upi_id), writer:profiles!payments_writer_id_fkey(display_name,upi_id)`
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as PaymentRow[];
@@ -108,7 +122,6 @@ function AdminPage() {
     queryFn: async () => (await supabase.from("bids").select("id,created_at,amount,status")).data ?? [],
   });
 
-  // FIX: Realtime subscriptions — properly invalidate and refetch
   useEffect(() => {
     if (!isAdmin) return;
     const ch = supabase
@@ -135,7 +148,9 @@ function AdminPage() {
           console.log("Admin realtime: connected");
         }
       });
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, [isAdmin, qc, refetchPayments, refetchFiles]);
 
   const stats = useMemo(() => {
@@ -155,12 +170,23 @@ function AdminPage() {
   const series = useMemo(() => {
     const days: { label: string; users: number; revenue: number; profit: number; bids: number }[] = [];
     for (let i = 13; i >= 0; i--) {
-      const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
-      const next = new Date(d); next.setDate(next.getDate() + 1);
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      const next = new Date(d);
+      next.setDate(next.getDate() + 1);
       const label = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      const inRange = (iso: string) => { const t = new Date(iso).getTime(); return t >= d.getTime() && t < next.getTime(); };
+      const inRange = (iso: string) => {
+        const t = new Date(iso).getTime();
+        return t >= d.getTime() && t < next.getTime();
+      };
       const usersN = profiles?.filter((p) => inRange(p.created_at)).length ?? 0;
-      const paysIn = payments?.filter((p) => (p.payment_received_at && inRange(p.payment_received_at)) || (!p.payment_received_at && inRange(p.created_at) && p.status !== "awaiting_payment" && p.status !== "cancelled")) ?? [];
+      const paysIn =
+        payments?.filter(
+          (p) =>
+            (p.payment_received_at && inRange(p.payment_received_at)) ||
+            (!p.payment_received_at && inRange(p.created_at) && p.status !== "awaiting_payment" && p.status !== "cancelled")
+        ) ?? [];
       const rev = paysIn.reduce((s, p) => s + p.amount, 0);
       const prof = paysIn.reduce((s, p) => s + p.commission, 0);
       const bidsN = bids?.filter((b: any) => inRange(b.created_at)).length ?? 0;
@@ -171,7 +197,9 @@ function AdminPage() {
 
   const statusPie = useMemo(() => {
     const b: Record<string, number> = { awaiting_payment: 0, payment_received: 0, file_delivered: 0, cancelled: 0 };
-    payments?.forEach((p) => { b[p.status] = (b[p.status] ?? 0) + 1; });
+    payments?.forEach((p) => {
+      b[p.status] = (b[p.status] ?? 0) + 1;
+    });
     return [
       { name: "Awaiting", value: b.awaiting_payment },
       { name: "Paid", value: b.payment_received },
@@ -184,7 +212,8 @@ function AdminPage() {
     const map = new Map<string, { name: string; jobs: number; earned: number }>();
     payments?.filter((p) => p.status === "file_delivered").forEach((p) => {
       const prev = map.get(p.writer_id) ?? { name: p.writer?.display_name ?? "Writer", jobs: 0, earned: 0 };
-      prev.jobs += 1; prev.earned += p.writer_payout;
+      prev.jobs += 1;
+      prev.earned += p.writer_payout;
       map.set(p.writer_id, prev);
     });
     return [...map.values()].sort((a, b) => b.earned - a.earned).slice(0, 5);
@@ -193,8 +222,11 @@ function AdminPage() {
   const filteredProfiles = useMemo(() => {
     if (!userSearch.trim()) return profiles ?? [];
     const q = userSearch.toLowerCase();
-    return (profiles ?? []).filter((p) =>
-      p.display_name.toLowerCase().includes(q) || p.role.includes(q) || (p.upi_id ?? "").toLowerCase().includes(q)
+    return (profiles ?? []).filter(
+      (p) =>
+        p.display_name.toLowerCase().includes(q) ||
+        p.role.includes(q) ||
+        (p.upi_id ?? "").toLowerCase().includes(q)
     );
   }, [profiles, userSearch]);
 
@@ -204,7 +236,10 @@ function AdminPage() {
         <ShieldAlert className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
         <p className="font-semibold">Admin access only</p>
         <p className="text-sm text-muted-foreground mt-1 mb-4">You need to be signed in as an admin.</p>
-        <Link to="/admin-auth" className="inline-flex items-center gap-2 bg-gradient-primary text-primary-foreground px-5 py-2.5 rounded-2xl font-medium text-sm shadow-soft">
+        <Link
+          to="/admin-auth"
+          className="inline-flex items-center gap-2 bg-gradient-primary text-primary-foreground px-5 py-2.5 rounded-2xl font-medium text-sm shadow-soft"
+        >
           Go to Admin Login
         </Link>
       </div>
@@ -214,13 +249,24 @@ function AdminPage() {
   const fileForBid = (bid_id: string) => files?.find((f: any) => f.bid_id === bid_id);
 
   const markReceived = async (p: PaymentRow) => {
-    const { error } = await supabase.from("payments")
+    const { error } = await supabase
+      .from("payments")
       .update({ status: "payment_received", payment_received_at: new Date().toISOString() })
       .eq("id", p.id);
     if (error) return toast.error(error.message);
     await supabase.from("notifications").insert([
-      { user_id: p.student_id, title: "Payment confirmed ✓", body: `Your payment of ₹${p.amount} is confirmed.`, link: `/payment/${p.assignment_id}` },
-      { user_id: p.writer_id, title: "New paid job 🎉", body: `Student paid ₹${p.amount}. Please upload the assignment.`, link: `/assignment/${p.assignment_id}` },
+      {
+        user_id: p.student_id,
+        title: "Payment confirmed ✓",
+        body: `Your payment of ₹${p.amount} is confirmed.`,
+        link: `/payment/${p.assignment_id}`,
+      },
+      {
+        user_id: p.writer_id,
+        title: "New paid job 🎉",
+        body: `Student paid ₹${p.amount}. Please upload the assignment.`,
+        link: `/assignment/${p.assignment_id}`,
+      },
     ]);
     toast.success("✓ Marked received & students notified");
     qc.invalidateQueries({ queryKey: ["admin-payments"] });
@@ -231,9 +277,17 @@ function AdminPage() {
     if (!f) return toast.error("No file uploaded yet by writer");
     const { error } = await supabase.from("assignment_files").update({ released: true }).eq("id", f.id);
     if (error) return toast.error(error.message);
-    await supabase.from("payments").update({ status: "file_delivered", released_at: new Date().toISOString() }).eq("id", p.id);
+    await supabase
+      .from("payments")
+      .update({ status: "file_delivered", released_at: new Date().toISOString() })
+      .eq("id", p.id);
     await supabase.from("notifications").insert([
-      { user_id: p.student_id, title: "Assignment ready 📄", body: "You can now download your file!", link: `/payment/${p.assignment_id}` },
+      {
+        user_id: p.student_id,
+        title: "Assignment ready 📄",
+        body: "You can now download your file!",
+        link: `/payment/${p.assignment_id}`,
+      },
       { user_id: p.writer_id, title: "File released!", body: `Please send ₹${p.writer_payout} payout to the writer via UPI.`, link: `/admin` },
     ]);
     toast.success("🎉 File released to student");
@@ -246,7 +300,12 @@ function AdminPage() {
     const { error } = await supabase.from("payments").update({ status: "cancelled" }).eq("id", p.id);
     if (error) return toast.error(error.message);
     await supabase.from("notifications").insert([
-      { user_id: p.student_id, title: "Payment cancelled", body: "Your payment has been cancelled by admin.", link: `/payment/${p.assignment_id}` },
+      {
+        user_id: p.student_id,
+        title: "Payment cancelled",
+        body: "Your payment has been cancelled by admin.",
+        link: `/payment/${p.assignment_id}`,
+      },
     ]);
     toast.success("Payment cancelled");
     qc.invalidateQueries({ queryKey: ["admin-payments"] });
@@ -267,35 +326,51 @@ function AdminPage() {
   };
 
   const sendNotif = async () => {
-    if (!notifTitle || !notifBody) return toast.error("Title and body required");
+    // FIX: Proper validation with .trim() to remove spaces
+    const titleTrimmed = notifTitle.trim();
+    const bodyTrimmed = notifBody.trim();
+
+    if (!titleTrimmed) return toast.error("Title required");
+    if (!bodyTrimmed) return toast.error("Message required");
+
     setSendingNotif(true);
     try {
       const targets = notifTarget.trim()
         ? (profiles ?? []).filter((p) => p.display_name.toLowerCase().includes(notifTarget.toLowerCase()))
         : (profiles ?? []);
+
       if (!targets.length) return toast.error("No matching users");
+
       const { error } = await supabase.from("notifications").insert(
-        targets.map((p) => ({ user_id: p.id, title: notifTitle, body: notifBody, link: "/feed" }))
+        targets.map((p) => ({
+          user_id: p.id,
+          title: titleTrimmed,
+          body: bodyTrimmed,
+          link: "/feed",
+        }))
       );
+
       if (error) throw error;
-      toast.success(`Sent to ${targets.length} user${targets.length > 1 ? "s" : ""}`);
-      setNotifTitle(""); setNotifBody(""); setNotifTarget("");
+
+      toast.success(`✓ Sent to ${targets.length} user${targets.length > 1 ? "s" : ""}`);
+      setNotifTitle("");
+      setNotifBody("");
+      setNotifTarget("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed");
+      toast.error(err instanceof Error ? err.message : "Failed to send");
     } finally {
       setSendingNotif(false);
     }
   };
 
-  const actionableCount = payments?.filter((p) => {
-    const f = fileForBid(p.bid_id);
-    return (p.status === "awaiting_payment" && p.screenshot_url) ||
-           (p.status === "payment_received" && f && !(f as any).released);
-  }).length ?? 0;
+  const actionableCount =
+    payments?.filter((p) => {
+      const f = fileForBid(p.bid_id);
+      return (p.status === "awaiting_payment" && p.screenshot_url) || (p.status === "payment_received" && f && !(f as any).released);
+    }).length ?? 0;
 
   return (
     <div className="pb-4">
-      {/* Admin hero header */}
       <div className="bg-gradient-hero px-4 pt-10 pb-7 text-primary-foreground relative overflow-hidden">
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
@@ -321,7 +396,6 @@ function AdminPage() {
             Refresh
           </button>
         </div>
-        {/* Revenue pill */}
         <div className="mt-4 inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-2.5">
           <IndianRupee className="h-4 w-4" />
           <div>
@@ -341,7 +415,9 @@ function AdminPage() {
 
         <Tabs defaultValue="overview">
           <TabsList className="grid grid-cols-4 w-full rounded-2xl bg-muted/60 p-1">
-            <TabsTrigger value="overview" className="rounded-xl text-xs">Overview</TabsTrigger>
+            <TabsTrigger value="overview" className="rounded-xl text-xs">
+              Overview
+            </TabsTrigger>
             <TabsTrigger value="payments" className="rounded-xl text-xs relative">
               Payments
               {actionableCount > 0 && (
@@ -350,13 +426,15 @@ function AdminPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="users" className="rounded-xl text-xs">Users</TabsTrigger>
-            <TabsTrigger value="tools" className="rounded-xl text-xs">Tools</TabsTrigger>
+            <TabsTrigger value="users" className="rounded-xl text-xs">
+              Users
+            </TabsTrigger>
+            <TabsTrigger value="tools" className="rounded-xl text-xs">
+              Tools
+            </TabsTrigger>
           </TabsList>
 
-          {/* ====== OVERVIEW ====== */}
           <TabsContent value="overview" className="mt-4 space-y-4">
-            {/* Revenue cards */}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-2xl bg-gradient-primary p-4 text-primary-foreground shadow-glow">
                 <IndianRupee className="h-4 w-4 opacity-80 mb-1" />
@@ -416,7 +494,9 @@ function AdminPage() {
                 <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
                     <Pie data={statusPie} dataKey="value" nameKey="name" outerRadius={65} innerRadius={38} paddingAngle={3}>
-                      {statusPie.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                      {statusPie.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
                     </Pie>
                     <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 11 }} />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
@@ -425,7 +505,6 @@ function AdminPage() {
               </ChartCard>
             )}
 
-            {/* Top writers */}
             {topWriters.length > 0 && (
               <div className="rounded-2xl bg-card border border-border p-4 shadow-card">
                 <div className="flex items-center gap-2 mb-3">
@@ -436,7 +515,7 @@ function AdminPage() {
                   {topWriters.map((w, i) => (
                     <div key={i} className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <span className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${i === 0 ? "bg-gradient-warm text-white shadow-soft" : i === 1 ? "bg-muted" : "bg-muted/60"}`}>
+                        <span className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${i === 0 ? "bg-gradient-warm text-white shadow-soft" : i === 1 ? "bg-yellow-200 text-yellow-800" : "bg-orange-100 text-orange-800"}`}>
                           {i + 1}
                         </span>
                         <span className="text-sm truncate font-medium">{w.name}</span>
@@ -452,7 +531,6 @@ function AdminPage() {
             )}
           </TabsContent>
 
-          {/* ====== PAYMENTS ====== */}
           <TabsContent value="payments" className="mt-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-sm">All payments ({payments?.length ?? 0})</h2>
@@ -465,100 +543,139 @@ function AdminPage() {
                   <p className="text-sm text-muted-foreground">No payments yet</p>
                 </div>
               )}
-              {[...(payments ?? [])].sort((a, b) => {
-                const score = (p: PaymentRow) => {
+              {[...(payments ?? [])]
+                .sort((a, b) => {
+                  const score = (p: PaymentRow) => {
+                    const f = fileForBid(p.bid_id);
+                    if (p.status === "awaiting_payment" && p.screenshot_url) return 0;
+                    if (p.status === "payment_received" && f && !(f as any).released) return 1;
+                    if (p.status === "payment_received") return 2;
+                    if (p.status === "file_delivered") return 4;
+                    return 3;
+                  };
+                  return score(a) - score(b);
+                })
+                .map((p) => {
                   const f = fileForBid(p.bid_id);
-                  if (p.status === "awaiting_payment" && p.screenshot_url) return 0;
-                  if (p.status === "payment_received" && f && !(f as any).released) return 1;
-                  if (p.status === "payment_received") return 2;
-                  if (p.status === "file_delivered") return 4;
-                  return 3;
-                };
-                return score(a) - score(b);
-              }).map((p) => {
-                const f = fileForBid(p.bid_id);
-                const needsVerify = p.status === "awaiting_payment" && p.screenshot_url;
-                const needsRelease = p.status === "payment_received" && f && !(f as any).released;
-                return (
-                  <div key={p.id} className={`rounded-2xl bg-card border p-4 shadow-card transition-all ${needsVerify ? "border-warning/50 ring-2 ring-warning/20" : needsRelease ? "border-primary/50 ring-2 ring-primary/20" : "border-border"}`}>
-                    {needsVerify && (
-                      <div className="mb-3 px-3 py-2 rounded-xl bg-warning/10 text-warning text-xs font-semibold flex items-center gap-2">
-                        <Clock className="h-3.5 w-3.5 shrink-0" />Screenshot uploaded — verify payment now
-                      </div>
-                    )}
-                    {needsRelease && (
-                      <div className="mb-3 px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-semibold flex items-center gap-2">
-                        <FileText className="h-3.5 w-3.5 shrink-0" />File uploaded — release to student
-                      </div>
-                    )}
-
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-sm truncate">{p.assignment?.title}</p>
-                        <p className="text-xs text-muted-foreground">{p.assignment?.subject}</p>
-                      </div>
-                      <StatusBadge status={p.status} />
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      <MiniStat label="Total" value={p.amount} />
-                      <MiniStat label="Profit (15%)" value={p.commission} tone="success" />
-                      <MiniStat label="Writer" value={p.writer_payout} />
-                    </div>
-
-                    <div className="text-xs space-y-1 mb-3 bg-muted/40 rounded-xl px-3 py-2">
-                      <p><span className="text-muted-foreground">Student:</span> <span className="font-medium">{p.student?.display_name}</span></p>
-                      <p>
-                        <span className="text-muted-foreground">Writer:</span> <span className="font-medium">{p.writer?.display_name}</span>
-                        {p.writer?.upi_id && <span className="font-mono text-primary ml-1">· {p.writer.upi_id}</span>}
-                      </p>
-                      <p className="text-muted-foreground">{new Date(p.created_at).toLocaleString()}</p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {p.screenshot_url && (
-                        <Button size="sm" variant="outline" onClick={() => viewScreenshot(p.screenshot_url!)} className="rounded-xl text-xs h-8">
-                          <Eye className="h-3.5 w-3.5 mr-1" />Screenshot
-                        </Button>
-                      )}
+                  const needsVerify = p.status === "awaiting_payment" && p.screenshot_url;
+                  const needsRelease = p.status === "payment_received" && f && !(f as any).released;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`rounded-2xl bg-card border p-4 shadow-card transition-all ${
+                        needsVerify ? "border-warning/50 ring-2 ring-warning/20" : needsRelease ? "border-primary/30 ring-2 ring-primary/10" : "border-border"
+                      }`}
+                    >
                       {needsVerify && (
-                        <Button size="sm" onClick={() => markReceived(p)} className="rounded-xl text-xs h-8 bg-success hover:bg-success/90 text-success-foreground">
-                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Confirm payment
-                        </Button>
-                      )}
-                      {f && (
-                        <Button size="sm" variant="outline" onClick={() => viewScreenshot((f as any).storage_path)} className="rounded-xl text-xs h-8">
-                          <FileText className="h-3.5 w-3.5 mr-1" />View file
-                        </Button>
+                        <div className="mb-3 px-3 py-2 rounded-xl bg-warning/10 text-warning text-xs font-semibold flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 shrink-0" />
+                          Screenshot uploaded — verify payment now
+                        </div>
                       )}
                       {needsRelease && (
-                        <Button size="sm" onClick={() => releaseFile(p)} className="rounded-xl text-xs h-8 bg-gradient-primary">
-                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Release file
-                        </Button>
+                        <div className="mb-3 px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-semibold flex items-center gap-2">
+                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                          File uploaded — release to student
+                        </div>
                       )}
-                      {f && (f as any).released && (
-                        <span className="text-[11px] text-success flex items-center gap-1 font-medium">
-                          <CheckCircle2 className="h-3 w-3" />Delivered
-                        </span>
-                      )}
-                      {p.status !== "cancelled" && p.status !== "file_delivered" && (
-                        <Button size="sm" variant="ghost" onClick={() => cancelPayment(p)} className="rounded-xl text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10">
-                          <XCircle className="h-3.5 w-3.5 mr-1" />Cancel
-                        </Button>
-                      )}
-                      <Link to="/assignment/$id" params={{ id: p.assignment_id }}>
-                        <Button size="sm" variant="ghost" className="rounded-xl h-8 w-8 p-0">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </Button>
-                      </Link>
+
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-sm truncate">{p.assignment?.title}</p>
+                          <p className="text-xs text-muted-foreground">{p.assignment?.subject}</p>
+                        </div>
+                        <StatusBadge status={p.status} />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        <MiniStat label="Total" value={p.amount} />
+                        <MiniStat label="Profit (15%)" value={p.commission} tone="success" />
+                        <MiniStat label="Writer" value={p.writer_payout} />
+                      </div>
+
+                      <div className="text-xs space-y-1 mb-3 bg-muted/40 rounded-xl px-3 py-2">
+                        <p>
+                          <span className="text-muted-foreground">Student:</span> <span className="font-medium">{p.student?.display_name}</span>
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">Writer:</span> <span className="font-medium">{p.writer?.display_name}</span>
+                          {p.writer?.upi_id && <span className="font-mono text-primary ml-1">· {p.writer.upi_id}</span>}
+                        </p>
+                        <p className="text-muted-foreground">{new Date(p.created_at).toLocaleString()}</p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {p.screenshot_url && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => viewScreenshot(p.screenshot_url!)}
+                            className="rounded-xl text-xs h-8"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            Screenshot
+                          </Button>
+                        )}
+                        {needsVerify && (
+                          <Button
+                            size="sm"
+                            onClick={() => markReceived(p)}
+                            className="rounded-xl text-xs h-8 bg-success hover:bg-success/90 text-success-foreground"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                            Confirm payment
+                          </Button>
+                        )}
+                        {f && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => viewScreenshot((f as any).storage_path)}
+                            className="rounded-xl text-xs h-8"
+                          >
+                            <FileText className="h-3.5 w-3.5 mr-1" />
+                            View file
+                          </Button>
+                        )}
+                        {needsRelease && (
+                          <Button
+                            size="sm"
+                            onClick={() => releaseFile(p)}
+                            className="rounded-xl text-xs h-8 bg-gradient-primary"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                            Release file
+                          </Button>
+                        )}
+                        {f && (f as any).released && (
+                          <span className="text-[11px] text-success flex items-center gap-1 font-medium">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Delivered
+                          </span>
+                        )}
+                        {p.status !== "cancelled" && p.status !== "file_delivered" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => cancelPayment(p)}
+                            className="rounded-xl text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <XCircle className="h-3.5 w-3.5 mr-1" />
+                            Cancel
+                          </Button>
+                        )}
+                        <Link to="/assignment/$id" params={{ id: p.assignment_id }}>
+                          <Button size="sm" variant="ghost" className="rounded-xl h-8 w-8 p-0">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </TabsContent>
 
-          {/* ====== USERS ====== */}
           <TabsContent value="users" className="mt-4">
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="rounded-2xl bg-gradient-primary p-3 text-primary-foreground shadow-soft">
@@ -574,24 +691,46 @@ function AdminPage() {
             </div>
             <div className="relative mb-3">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search name, role, UPI…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} className="pl-10 rounded-2xl" />
+              <Input
+                placeholder="Search name, role, UPI…"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="pl-10 rounded-2xl"
+              />
             </div>
             <p className="text-xs text-muted-foreground mb-2 font-medium">{filteredProfiles.length} users</p>
             <div className="space-y-2">
               {filteredProfiles.map((u) => (
-                <div key={u.id} className={`rounded-2xl bg-card border p-3.5 flex items-center justify-between shadow-card ${u.is_banned ? "border-destructive/30 bg-destructive/5" : "border-border"}`}>
+                <div
+                  key={u.id}
+                  className={`rounded-2xl bg-card border p-3.5 flex items-center justify-between shadow-card ${
+                    u.is_banned ? "border-destructive/30 bg-destructive/5" : "border-border"
+                  }`}
+                >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-sm truncate">{u.display_name}</p>
-                      {u.is_banned && <span className="text-[10px] bg-destructive/15 text-destructive px-1.5 py-0.5 rounded-full font-bold">Banned</span>}
+                      {u.is_banned && (
+                        <span className="text-[10px] bg-destructive/15 text-destructive px-1.5 py-0.5 rounded-full font-bold">
+                          Banned
+                        </span>
+                      )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground capitalize">{u.role} · ★{Number(u.rating).toFixed(1)} · {u.jobs_completed} jobs</p>
+                    <p className="text-[11px] text-muted-foreground capitalize">
+                      {u.role} · ★{Number(u.rating).toFixed(1)} · {u.jobs_completed} jobs
+                    </p>
                     {u.upi_id && <p className="text-[10px] font-mono text-primary truncate mt-0.5">{u.upi_id}</p>}
                   </div>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
                     <span className="text-[10px] text-muted-foreground">{new Date(u.created_at).toLocaleDateString()}</span>
-                    <Button size="sm" variant="ghost" onClick={() => toggleBan(u)}
-                      className={`h-8 w-8 p-0 rounded-xl ${u.is_banned ? "text-success hover:text-success hover:bg-success/10" : "text-destructive hover:text-destructive hover:bg-destructive/10"}`}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => toggleBan(u)}
+                      className={`h-8 w-8 p-0 rounded-xl ${
+                        u.is_banned ? "text-success hover:text-success hover:bg-success/10" : "text-destructive hover:text-destructive hover:bg-destructive/10"
+                      }`}
+                    >
                       {u.is_banned ? <RotateCcw className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
                     </Button>
                   </div>
@@ -600,7 +739,6 @@ function AdminPage() {
             </div>
           </TabsContent>
 
-          {/* ====== TOOLS ====== */}
           <TabsContent value="tools" className="mt-4 space-y-4">
             <div className="rounded-2xl bg-card border border-border p-4 shadow-card space-y-3">
               <div className="flex items-center gap-2">
@@ -612,15 +750,33 @@ function AdminPage() {
                   <p className="text-xs text-muted-foreground">Leave target empty to broadcast to all</p>
                 </div>
               </div>
-              <Input placeholder="Target user (blank = all)" value={notifTarget} onChange={(e) => setNotifTarget(e.target.value)} className="rounded-xl" />
-              <Input placeholder="Title" value={notifTitle} onChange={(e) => setNotifTitle(e.target.value)} className="rounded-xl" />
-              <Input placeholder="Message body" value={notifBody} onChange={(e) => setNotifBody(e.target.value)} className="rounded-xl" />
-              <Button className="w-full bg-gradient-primary rounded-xl" disabled={sendingNotif || !notifTitle || !notifBody} onClick={sendNotif}>
+              <Input
+                placeholder="Target user (blank = all)"
+                value={notifTarget}
+                onChange={(e) => setNotifTarget(e.target.value)}
+                className="rounded-xl"
+              />
+              <Input
+                placeholder="Title"
+                value={notifTitle}
+                onChange={(e) => setNotifTitle(e.target.value)}
+                className="rounded-xl"
+              />
+              <Input
+                placeholder="Message body"
+                value={notifBody}
+                onChange={(e) => setNotifBody(e.target.value)}
+                className="rounded-xl"
+              />
+              <Button
+                className="w-full bg-gradient-primary rounded-xl"
+                disabled={sendingNotif || !notifTitle.trim() || !notifBody.trim()}
+                onClick={sendNotif}
+              >
                 {sendingNotif ? "Sending…" : `Send to ${notifTarget.trim() ? "matched users" : "all users"}`}
               </Button>
             </div>
 
-            {/* Platform stats */}
             <div className="rounded-2xl bg-gradient-soft border border-border p-4 shadow-card space-y-2.5">
               <h3 className="font-bold text-sm mb-1">Platform stats</h3>
               {[
@@ -644,7 +800,19 @@ function AdminPage() {
   );
 }
 
-function Stat({ icon: Icon, label, value, sub, tone }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; sub?: string; tone: string }) {
+function Stat({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  sub?: string;
+  tone: string;
+}) {
   const colors: Record<string, string> = {
     primary: "bg-primary/10 text-primary",
     success: "bg-success/10 text-success",
@@ -668,13 +836,22 @@ function MiniStat({ label, value, tone }: { label: string; value: number; tone?:
     <div className={`rounded-xl p-2 ${tone === "success" ? "bg-success/10" : "bg-muted/50"}`}>
       <p className="text-[10px] text-muted-foreground">{label}</p>
       <p className={`font-bold text-sm flex items-center gap-0.5 ${tone === "success" ? "text-success" : ""}`}>
-        <IndianRupee className="h-3 w-3" />{value}
+        <IndianRupee className="h-3 w-3" />
+        {value}
       </p>
     </div>
   );
 }
 
-function ChartCard({ title, icon: Icon, children }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+function ChartCard({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-2xl bg-card border border-border p-3 shadow-card">
       <div className="flex items-center gap-2 mb-2 px-1">
