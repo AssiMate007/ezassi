@@ -1,15 +1,18 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
+import { useIsAdmin } from "@/hooks/use-admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Star, LogOut, GraduationCap, PenLine, Wallet, CheckCircle2, Eye, EyeOff, Shield } from "lucide-react";
+import {
+  Star, LogOut, GraduationCap, PenLine, Wallet,
+  CheckCircle2, Eye, EyeOff, Shield, Sun, Moon,
+} from "lucide-react";
 import { AssignmentCard } from "@/components/AssignmentCard";
 import { toast } from "sonner";
-import { useIsAdmin } from "@/hooks/use-admin";
-import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
@@ -31,8 +34,9 @@ function ProfilePage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [upiId, setUpiId] = useState("");
-  const [showUpi, setShowUpi] = useState(false); // FIX: UPI hidden by default
+  const [showUpi, setShowUpi] = useState(false);
   const [savingUpi, setSavingUpi] = useState(false);
 
   useEffect(() => {
@@ -42,11 +46,13 @@ function ProfilePage() {
   const saveUpi = async () => {
     if (!user) return;
     const trimmed = upiId.trim();
-    if (trimmed && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed)) {
-      return toast.error("Enter a valid UPI ID (e.g. name@okhdfcbank)");
-    }
+    if (trimmed && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed))
+      return toast.error("Enter a valid UPI ID e.g. name@okhdfcbank");
     setSavingUpi(true);
-    const { error } = await supabase.from("profiles").update({ upi_id: trimmed || null } as never).eq("id", user.id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ upi_id: trimmed || null } as never)
+      .eq("id", user.id);
     setSavingUpi(false);
     if (error) return toast.error(error.message);
     toast.success("UPI ID saved ✓");
@@ -54,17 +60,25 @@ function ProfilePage() {
 
   const { data: myAssignments } = useQuery({
     queryKey: ["my-assignments", user?.id, profile?.role],
+    enabled: !!profile,
     queryFn: async () => {
       if (!user || !profile) return [];
       if (profile.role === "student") {
-        const { data } = await supabase.from("assignments").select("*, bids(count)").eq("student_id", user.id).order("created_at", { ascending: false });
+        const { data } = await supabase
+          .from("assignments")
+          .select("*, bids(count)")
+          .eq("student_id", user.id)
+          .order("created_at", { ascending: false });
         return data ?? [];
       } else {
-        const { data } = await supabase.from("bids").select("*, assignment:assignments(*)").eq("writer_id", user.id).order("created_at", { ascending: false });
+        const { data } = await supabase
+          .from("bids")
+          .select("*, assignment:assignments(*)")
+          .eq("writer_id", user.id)
+          .order("created_at", { ascending: false });
         return (data ?? []).map((b) => b.assignment).filter(Boolean);
       }
     },
-    enabled: !!profile,
   });
 
   const signOut = async () => {
@@ -74,8 +88,8 @@ function ProfilePage() {
 
   if (!profile) return (
     <div className="p-8 space-y-3">
-      {[80, 40, 24, 24].map((h, i) => (
-        <div key={i} className={`h-${h === 80 ? "20" : h === 40 ? "10" : "6"} rounded-xl shimmer`} />
+      {[20, 10, 6, 6].map((h, i) => (
+        <div key={i} className={`h-${h} rounded-xl shimmer`} />
       ))}
     </div>
   );
@@ -90,19 +104,34 @@ function ProfilePage() {
       <div className="bg-gradient-hero px-4 pt-12 pb-20 text-primary-foreground relative overflow-hidden">
         <div className="absolute inset-0 bg-black/5" />
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-black/10 blur-3xl pointer-events-none" />
+
+        {/* Dark mode toggle — top right */}
+        <button
+          onClick={toggleTheme}
+          className="absolute top-4 right-4 z-10 h-10 w-10 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-all active:scale-95"
+          aria-label="Toggle dark mode"
+        >
+          {theme === "dark"
+            ? <Sun  className="h-5 w-5 text-yellow-300" />
+            : <Moon className="h-5 w-5 text-white" />}
+        </button>
+
         <div className="relative flex flex-col items-center text-center">
           <Avatar name={profile.display_name} size={84} />
           <h1 className="mt-4 text-2xl font-bold">{profile.display_name}</h1>
           <div className="mt-1.5 flex items-center gap-1.5 text-sm text-primary-foreground/85">
-            {profile.role === "student" ? <GraduationCap className="h-4 w-4" /> : <PenLine className="h-4 w-4" />}
+            {profile.role === "student"
+              ? <GraduationCap className="h-4 w-4" />
+              : <PenLine       className="h-4 w-4" />}
             <span className="capitalize font-medium">{profile.role}</span>
           </div>
+
           {isAdmin && (
             <Link to="/admin" className="mt-2 flex items-center gap-1.5 text-xs bg-white/20 backdrop-blur-sm border border-white/30 px-3 py-1.5 rounded-full font-semibold">
               <Shield className="h-3.5 w-3.5" /> Admin Panel
             </Link>
           )}
+
           <div className="mt-5 flex gap-8">
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 text-xl font-bold">
@@ -123,14 +152,51 @@ function ProfilePage() {
       </div>
 
       <div className="px-4 -mt-10 relative z-10 space-y-4">
-        {/* Bio card */}
+
+        {/* Theme toggle card */}
+        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shadow-soft ${
+                theme === "dark" ? "bg-slate-800" : "bg-amber-50"
+              }`}>
+                {theme === "dark"
+                  ? <Moon className="h-5 w-5 text-blue-400" />
+                  : <Sun  className="h-5 w-5 text-amber-500" />}
+              </div>
+              <div>
+                <p className="font-semibold text-sm">
+                  {theme === "dark" ? "Dark mode" : "Light mode"}
+                </p>
+                <p className="text-xs text-muted-foreground">Tap to switch</p>
+              </div>
+            </div>
+            {/* Toggle switch */}
+            <button
+              onClick={toggleTheme}
+              className={`relative h-7 w-13 rounded-full transition-colors duration-300 focus:outline-none ${
+                theme === "dark" ? "bg-primary" : "bg-muted"
+              }`}
+              style={{ width: 52 }}
+              aria-label="Toggle theme"
+            >
+              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-300 ${
+                theme === "dark" ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Bio */}
         <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
           <p className="text-sm text-muted-foreground">
-            {profile.bio ?? <span className="italic">No bio yet — add one to attract more mates!</span>}
+            {profile.bio ?? (
+              <span className="italic">No bio yet — add one to attract more mates!</span>
+            )}
           </p>
         </div>
 
-        {/* UPI card — FIX: UPI masked by default, show/hide toggle */}
+        {/* UPI */}
         <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
           <div className="flex items-center gap-2 mb-1.5">
             <div className="h-8 w-8 rounded-xl bg-gradient-primary flex items-center justify-center shadow-soft">
@@ -145,7 +211,6 @@ function ProfilePage() {
               : "Optional — for refunds only."}
           </p>
 
-          {/* Show existing UPI masked */}
           {profile.upi_id && (
             <div className="mb-3 flex items-center gap-2 bg-muted/60 rounded-xl px-3 py-2">
               <span className="text-sm font-mono text-foreground flex-1">
@@ -171,7 +236,8 @@ function ProfilePage() {
               autoCorrect="off"
               className="rounded-xl"
             />
-            <Button onClick={saveUpi} disabled={savingUpi} className="bg-gradient-primary rounded-xl shrink-0">
+            <Button onClick={saveUpi} disabled={savingUpi}
+              className="bg-gradient-primary rounded-xl shrink-0">
               {savingUpi ? "…" : "Save"}
             </Button>
           </div>
@@ -183,34 +249,37 @@ function ProfilePage() {
             {profile.role === "student" ? "My assignments" : "My bids"}
           </h2>
           <div className="space-y-3">
-            {!myAssignments?.length && (
+            {!myAssignments?.length ? (
               <div className="text-center py-10 bg-card rounded-3xl border border-border">
                 <div className="text-4xl mb-2">📭</div>
                 <p className="text-sm text-muted-foreground">Nothing here yet</p>
               </div>
-            )}
-            {myAssignments?.map((a) => a && (
+            ) : myAssignments.map((a) => a && (
               <AssignmentCard key={a.id} a={{
                 id: a.id, title: a.title, subject: a.subject,
-                budget_min: a.budget_min, budget_max: a.budget_max, deadline: a.deadline,
-                bid_count: (a as { bids?: { count: number }[] }).bids?.[0]?.count,
+                budget_min: a.budget_min, budget_max: a.budget_max,
+                deadline: a.deadline,
+                bid_count: (a as any).bids?.[0]?.count,
               }} />
             ))}
           </div>
         </div>
 
         {/* Sign out */}
-        <Button variant="outline" onClick={signOut} className="w-full rounded-2xl mt-2 text-muted-foreground">
+        <Button variant="outline" onClick={signOut}
+          className="w-full rounded-2xl mt-2 text-muted-foreground">
           <LogOut className="h-4 w-4 mr-2" />Sign out
         </Button>
 
         {/* Footer links */}
         <div className="pt-4 border-t border-border flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-          {[["About", "/about"], ["Terms", "/terms"], ["Privacy", "/privacy"], ["Refunds", "/refund"], ["Contact", "/contact"]].map(([l, h]) => (
+          {[["About","/about"],["Terms","/terms"],["Privacy","/privacy"],["Refunds","/refund"],["Contact","/contact"]].map(([l,h])=>(
             <a key={h} href={h} className="hover:text-primary transition">{l}</a>
           ))}
         </div>
-        <p className="text-center text-[11px] text-muted-foreground">© {new Date().getFullYear()} AssiMate</p>
+        <p className="text-center text-[11px] text-muted-foreground">
+          © {new Date().getFullYear()} AssiMate
+        </p>
       </div>
     </div>
   );

@@ -6,7 +6,6 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
-
 import appCss from "../styles.css?url";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -18,11 +17,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "AssiMate — Assignment help on your budget" },
       { name: "description", content: "AssiMate is the friendly assignment marketplace. Post your work, get bids from trusted writers, chat, and pick your mate." },
       { property: "og:title", content: "AssiMate — Assignment help on your budget" },
-      { name: "twitter:title", content: "AssiMate — Assignment help on your budget" },
-      { property: "og:description", content: "AssiMate is the friendly assignment marketplace. Post your work, get bids from trusted writers, chat, and pick your mate." },
-      { name: "twitter:description", content: "AssiMate is the friendly assignment marketplace. Post your work, get bids from trusted writers, chat, and pick your mate." },
+      { property: "og:description", content: "AssiMate is the friendly assignment marketplace." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/bc38c8c4-dcf1-4720-a9b3-0edf9b825693" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/bc38c8c4-dcf1-4720-a9b3-0edf9b825693" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
@@ -32,10 +28,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   component: RootComponent,
 });
 
+// Inline script — runs before first paint to avoid dark mode flash
+const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}}catch(e){}})();`;
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <HeadContent />
+      </head>
       <body>
         {children}
         <Scripts />
