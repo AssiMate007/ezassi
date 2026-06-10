@@ -189,18 +189,24 @@ function PaymentPage() {
         .eq("id", payment.id);
       if (updateErr) throw updateErr;
 
-      // Notify admins
-      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
-      if (admins?.length) {
-        await supabase.from("notifications").insert(
-          admins.map((a) => ({
-            user_id: a.user_id,
-            title: "💰 New payment screenshot",
-            body: `₹${amount} for "${assignment.title}" — verify now`,
-            link: "/admin",
-          }))
-        );
+      // FIX: Notify admins with proper error handling
+      try {
+        const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+        if (admins?.length) {
+          const { error: notifErr } = await supabase.from("notifications").insert(
+            admins.map((a) => ({
+              user_id: a.user_id,
+              title: "💰 New payment screenshot",
+              body: `₹${amount} for "${assignment.title}" — verify now`,
+              link: "/admin",
+            }))
+          );
+          if (notifErr) console.error("Notification error:", notifErr);
+        }
+      } catch (notifErr) {
+        console.error("Admin notification failed:", notifErr);
       }
+
       toast.success("Screenshot uploaded! Admin will verify soon.");
       await refetchPayment();
     } catch (err: any) {
@@ -233,14 +239,22 @@ function PaymentPage() {
       }, { onConflict: "bid_id" });
       if (dbErr) throw dbErr;
 
-      await supabase.from("notifications").insert([
-        { user_id: assignment!.student_id, title: "Writer uploaded your file! 📄", body: "Admin is reviewing. You'll be notified when released.", link: `/payment/${id}` },
-      ]);
-      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
-      if (admins?.length)
-        await supabase.from("notifications").insert(
-          admins.map((a) => ({ user_id: a.user_id, title: "File ready to release 📤", body: assignment!.title, link: "/admin" }))
-        );
+      // FIX: Notify with proper error handling
+      try {
+        await supabase.from("notifications").insert([
+          { user_id: assignment!.student_id, title: "Writer uploaded your file! 📄", body: "Admin is reviewing. You'll be notified when released.", link: `/payment/${id}` },
+        ]);
+        const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+        if (admins?.length) {
+          const { error: notifErr } = await supabase.from("notifications").insert(
+            admins.map((a) => ({ user_id: a.user_id, title: "File ready to release 📤", body: assignment!.title, link: "/admin" }))
+          );
+          if (notifErr) console.error("Admin notification error:", notifErr);
+        }
+      } catch (notifErr) {
+        console.error("Notification failed:", notifErr);
+      }
+
       toast.success("File uploaded! Locked until admin releases it.");
       qc.invalidateQueries({ queryKey: ["assignment-file", id] });
       refetchFile();
