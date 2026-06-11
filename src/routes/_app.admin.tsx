@@ -288,7 +288,12 @@ function AdminPage() {
         body: "You can now download your file!",
         link: `/payment/${p.assignment_id}`,
       },
-      { user_id: p.writer_id, title: "File released!", body: `Please send ₹${p.writer_payout} payout to the writer via UPI.`, link: `/admin` },
+      {
+        user_id: p.writer_id,
+        title: "Job complete! 💸",
+        body: `Owner will send ₹${p.writer_payout} to your UPI within 24h.`,
+        link: `/profile`,
+      },
     ]);
     toast.success("🎉 File released to student");
     qc.invalidateQueries({ queryKey: ["admin-payments"] });
@@ -369,6 +374,9 @@ function AdminPage() {
       return (p.status === "awaiting_payment" && p.screenshot_url) || (p.status === "payment_received" && f && !(f as any).released);
     }).length ?? 0;
 
+  const pendingNoScreenshotCount =
+    payments?.filter((p) => p.status === "awaiting_payment" && !p.screenshot_url).length ?? 0;
+
   return (
     <div className="pb-4">
       <div className="bg-gradient-hero px-4 pt-10 pb-7 text-primary-foreground relative overflow-hidden">
@@ -410,6 +418,12 @@ function AdminPage() {
           <div className="mb-3 flex items-center gap-2.5 bg-warning/15 border border-warning/30 rounded-2xl px-4 py-3 text-warning animate-glow-pulse">
             <Zap className="h-4 w-4 shrink-0" />
             <p className="text-sm font-semibold">{actionableCount} payment{actionableCount > 1 ? "s" : ""} need your attention</p>
+          </div>
+        )}
+        {pendingNoScreenshotCount > 0 && (
+          <div className="mb-3 flex items-center gap-2.5 bg-muted/60 border border-border rounded-2xl px-4 py-3 text-muted-foreground">
+            <Clock className="h-4 w-4 shrink-0" />
+            <p className="text-xs">{pendingNoScreenshotCount} payment{pendingNoScreenshotCount > 1 ? "s" : ""} pending — student hasn't uploaded screenshot</p>
           </div>
         )}
 
@@ -543,33 +557,41 @@ function AdminPage() {
                   <p className="text-sm text-muted-foreground">No payments yet</p>
                 </div>
               )}
-              {[...(payments ?? [])]
+                {[...(payments ?? [])]
                 .sort((a, b) => {
                   const score = (p: PaymentRow) => {
                     const f = fileForBid(p.bid_id);
                     if (p.status === "awaiting_payment" && p.screenshot_url) return 0;
                     if (p.status === "payment_received" && f && !(f as any).released) return 1;
-                    if (p.status === "payment_received") return 2;
-                    if (p.status === "file_delivered") return 4;
-                    return 3;
+                    if (p.status === "awaiting_payment" && !p.screenshot_url) return 2;
+                    if (p.status === "payment_received") return 3;
+                    if (p.status === "file_delivered") return 5;
+                    return 4;
                   };
                   return score(a) - score(b);
                 })
                 .map((p) => {
                   const f = fileForBid(p.bid_id);
                   const needsVerify = p.status === "awaiting_payment" && p.screenshot_url;
+                  const noScreenshot = p.status === "awaiting_payment" && !p.screenshot_url;
                   const needsRelease = p.status === "payment_received" && f && !(f as any).released;
                   return (
                     <div
                       key={p.id}
                       className={`rounded-2xl bg-card border p-4 shadow-card transition-all ${
-                        needsVerify ? "border-warning/50 ring-2 ring-warning/20" : needsRelease ? "border-primary/30 ring-2 ring-primary/10" : "border-border"
+                        needsVerify ? "border-warning/50 ring-2 ring-warning/20" : needsRelease ? "border-primary/30 ring-2 ring-primary/10" : noScreenshot ? "border-muted-foreground/30" : "border-border"
                       }`}
                     >
                       {needsVerify && (
                         <div className="mb-3 px-3 py-2 rounded-xl bg-warning/10 text-warning text-xs font-semibold flex items-center gap-2">
                           <Clock className="h-3.5 w-3.5 shrink-0" />
                           Screenshot uploaded — verify payment now
+                        </div>
+                      )}
+                      {noScreenshot && (
+                        <div className="mb-3 px-3 py-2 rounded-xl bg-muted/60 text-muted-foreground text-xs font-medium flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 shrink-0" />
+                          Waiting for student screenshot — you can also approve manually if paid offline
                         </div>
                       )}
                       {needsRelease && (
@@ -624,6 +646,21 @@ function AdminPage() {
                           >
                             <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
                             Confirm payment
+                          </Button>
+                        )}
+                        {noScreenshot && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (confirm(`Manually mark this ₹${p.amount} payment as received (no screenshot)?`)) {
+                                markReceived(p);
+                              }
+                            }}
+                            className="rounded-xl text-xs h-8 border-success/50 text-success hover:bg-success/10"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                            Manually approve
                           </Button>
                         )}
                         {f && (

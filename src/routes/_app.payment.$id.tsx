@@ -177,10 +177,12 @@ function PaymentPage() {
     if (f.size > 10 * 1024 * 1024) return toast.error("Image must be under 10 MB");
     setUploading(true);
     try {
-      const path = `${user.id}/screenshot-${payment.id}-${Date.now()}.${f.name.split(".").pop()}`;
+      const rawExt = (f.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const ext = rawExt.slice(0, 5) || "png";
+      const path = `${user.id}/screenshot-${payment.id}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("assignment-files")
-        .upload(path, f, { upsert: true });
+        .upload(path, f, { upsert: true, contentType: f.type });
       if (upErr) throw upErr;
 
       const { error: updateErr } = await supabase
@@ -220,24 +222,52 @@ function PaymentPage() {
   const uploadWriterFile = async (f: File) => {
     if (!user || !acceptedBid) return;
     if (f.size > 25 * 1024 * 1024) return toast.error("File must be under 25 MB");
+    if (f.size === 0) return toast.error("File is empty");
     setUploading(true);
     try {
-      const path = `${user.id}/assignment-${id}-${Date.now()}-${f.name}`;
+      // Sanitize filename: drop any path separators, weird unicode, spaces -> _
+      const cleanName = f.name
+        .replace(/[\\/]/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/[^a-zA-Z0-9._-]/g, "")
+        .slice(-80) || "assignment.dat";
+      const path = `${user.id}/assignment-${id}-${Date.now()}-${cleanName}`;
+
       const { error: upErr } = await supabase.storage
         .from("assignment-files")
-        .upload(path, f, { upsert: true });
-      if (upErr) throw upErr;
+        .upload(path, f, {
+          upsert: true,
+          contentType: f.type || "application/octet-stream",
+        });
+      if (upErr) {
+        console.error("Storage upload error:", upErr);
+        throw new Error(
+          upErr.message?.includes("row-level security")
+            ? "Storage policy blocked upload. Ask admin to re-apply migrations."
+            : upErr.message || "Storage upload failed",
+        );
+      }
 
-      const { error: dbErr } = await supabase.from("assignment_files").upsert({
-        assignment_id: id,
-        bid_id: acceptedBid.id,
-        writer_id: user.id,
-        storage_path: path,
-        file_name: f.name,
-        file_size: f.size,
-        released: false,
-      }, { onConflict: "bid_id" });
-      if (dbErr) throw dbErr;
+      const { error: dbErr } = await supabase.from("assignment_files").upsert(
+        {
+          assignment_id: id,
+          bid_id: acceptedBid.id,
+          writer_id: user.id,
+          storage_path: path,
+          file_name: cleanName,
+          file_size: f.size,
+          released: false,
+        },
+        { onConflict: "bid_id" },
+      );
+      if (dbErr) {
+        console.error("DB insert error:", dbErr);
+        throw new Error(
+          dbErr.message?.includes("row-level security")
+            ? "Database policy blocked. Re-apply RLS migrations."
+            : dbErr.message || "Failed to save file record",
+        );
+      }
 
       // FIX: Notify with proper error handling
       try {
