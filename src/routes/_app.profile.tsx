@@ -105,17 +105,6 @@ function ProfilePage() {
         <div className="absolute inset-0 bg-black/5" />
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
 
-        {/* Dark mode toggle — top right */}
-        <button
-          onClick={toggleTheme}
-          className="absolute top-4 right-4 z-10 h-10 w-10 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-all active:scale-95"
-          aria-label="Toggle dark mode"
-        >
-          {theme === "dark"
-            ? <Sun  className="h-5 w-5 text-yellow-300" />
-            : <Moon className="h-5 w-5 text-white" />}
-        </button>
-
         <div className="relative flex flex-col items-center text-center">
           <Avatar name={profile.display_name} size={84} />
           <h1 className="mt-4 text-2xl font-bold">{profile.display_name}</h1>
