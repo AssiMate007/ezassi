@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,7 +48,6 @@ function DateDivider({ date }: { date: string }) {
 function ChatPage() {
   const { id, peer } = Route.useParams();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [offer, setOffer] = useState("");
@@ -144,12 +143,10 @@ function ChatPage() {
     <div className="flex flex-col h-[100dvh]" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-3 bg-card/90 backdrop-blur-lg border-b border-border sticky top-0 z-20 shadow-xs">
-        <button
-          onClick={() => navigate({ to: "/assignment/$id", params: { id } })}
-          className="h-9 w-9 rounded-xl flex items-center justify-center hover:bg-muted transition shrink-0"
-        >
+        <Link to="/assignment/$id" params={{ id }}
+          className="h-9 w-9 rounded-xl flex items-center justify-center hover:bg-muted transition shrink-0">
           <ArrowLeft className="h-5 w-5" />
-        </button>
+        </Link>
 
         {peerProfile && <Avatar name={peerProfile.display_name} size={38} />}
 
@@ -164,7 +161,7 @@ function ChatPage() {
 
         <Link to="/assignment/$id" params={{ id }}
           className="shrink-0 text-xs text-primary bg-primary/10 px-3 py-1.5 rounded-full font-medium hover:bg-primary/20 transition">
-          View
+          View assignment
         </Link>
       </header>
 
