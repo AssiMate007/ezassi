@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, IndianRupee, Copy, Upload, CheckCircle2,
-  Clock, Download, AlertTriangle, Loader2, RefreshCw,
+  Clock, Download, Loader2, RefreshCw,
   ShieldCheck, FileText, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";

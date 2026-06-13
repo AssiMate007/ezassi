@@ -38,7 +38,7 @@ function InitialsAvatar({ name, size = 40 }: { name: string; size?: number }) {
 
 function AssignmentPage() {
   const { id } = Route.useParams();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -68,7 +68,8 @@ function AssignmentPage() {
   });
 
   const isOwner = user?.id === assignment?.student_id;
-  const isWriter = true; // Anyone can bid
+  // FIX: owner cannot bid on their own assignment
+  const canBid = !!user && !isOwner;
   const myBid = bids?.find((b) => b.writer_id === user?.id);
   const hasAccepted = !!assignment?.accepted_bid_id;
   const deadline = assignment ? new Date(assignment.deadline) : null;
@@ -103,18 +104,18 @@ function AssignmentPage() {
   const accept = async (bid: BidRow) => {
     const { error } = await supabase.from("bids").update({ status: "accepted" }).eq("id", bid.id);
     if (error) return toast.error(error.message);
-    await supabase.from("assignments").update({ status: "in_progress", accepted_bid_id: bid.id }).eq("id", id);
-    // Reject other bids
+    const { error: aErr } = await supabase.from("assignments")
+      .update({ status: "in_progress", accepted_bid_id: bid.id }).eq("id", id);
+    if (aErr) return toast.error(aErr.message);
     await supabase.from("bids").update({ status: "rejected" })
       .eq("assignment_id", id).neq("id", bid.id);
-    // Notify the writer
     await supabase.from("notifications").insert({
       user_id: bid.writer_id,
       title: "Bid accepted! 🎉",
-      body: `Your bid of ₹${bid.amount} was accepted for "${assignment?.title}". The student will pay now.`,
+      body: `Your bid of ₹${bid.amount} was accepted for "${assignment?.title}". Student will pay now.`,
       link: `/assignment/${id}`,
     });
-    toast.success("Bid accepted! Chat with the writer.");
+    toast.success("Bid accepted!");
     qc.invalidateQueries({ queryKey: ["bids", id] });
     qc.invalidateQueries({ queryKey: ["assignment", id] });
     navigate({ to: "/chat/$id/$peer", params: { id, peer: bid.writer_id } });
@@ -139,7 +140,6 @@ function AssignmentPage() {
 
   return (
     <div className="pb-8">
-      {/* Header */}
       <div className="bg-gradient-hero px-4 pt-8 pb-16 text-primary-foreground relative overflow-hidden">
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
@@ -177,15 +177,14 @@ function AssignmentPage() {
       </div>
 
       <div className="px-4 -mt-10 relative z-10 space-y-4">
-        {/* Description card */}
         <div className="rounded-3xl bg-card border border-border shadow-card p-5">
           <div className="flex items-center gap-3 mb-3">
-            {assignment.student && (
-              <InitialsAvatar name={assignment.student.display_name} size={36} />
-            )}
+            {assignment.student && <InitialsAvatar name={assignment.student.display_name} size={36} />}
             <div>
               <p className="font-semibold text-sm">{assignment.student?.display_name ?? "Student"}</p>
-              <p className="text-xs text-muted-foreground">Posted {assignment.created_at ? formatDistanceToNow(new Date(assignment.created_at), { addSuffix: true }) : ""}</p>
+              <p className="text-xs text-muted-foreground">
+                Posted {assignment.created_at ? formatDistanceToNow(new Date(assignment.created_at), { addSuffix: true }) : ""}
+              </p>
             </div>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
@@ -193,7 +192,7 @@ function AssignmentPage() {
           </p>
         </div>
 
-        {/* Bids section */}
+        {/* Bids */}
         <div>
           <h2 className="font-bold text-base flex items-center justify-between mb-3">
             <span>Bids</span>
@@ -204,9 +203,7 @@ function AssignmentPage() {
             <div className="text-center py-10 bg-card rounded-3xl border border-dashed border-border">
               <div className="text-4xl mb-2">🙋</div>
               <p className="text-sm font-semibold">No bids yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {isWriter ? "Be the first to bid!" : "Writers will bid soon!"}
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Be the first to bid!</p>
             </div>
           )}
 
@@ -247,15 +244,10 @@ function AssignmentPage() {
                   </div>
                 </div>
 
-                {/* Owner actions */}
                 {isOwner && b.status === "pending" && !hasAccepted && (
                   <div className="flex gap-2 mt-3">
-                    <Button size="sm" className="flex-1 bg-gradient-primary rounded-xl" onClick={() => accept(b)}>
-                      Accept
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 rounded-xl" onClick={() => reject(b)}>
-                      Reject
-                    </Button>
+                    <Button size="sm" className="flex-1 bg-gradient-primary rounded-xl" onClick={() => accept(b)}>Accept</Button>
+                    <Button size="sm" variant="outline" className="flex-1 rounded-xl" onClick={() => reject(b)}>Reject</Button>
                     <Link to="/chat/$id/$peer" params={{ id, peer: b.writer_id }}>
                       <Button size="sm" variant="secondary" className="rounded-xl px-3">
                         <MessageCircle className="h-4 w-4" />
@@ -264,7 +256,6 @@ function AssignmentPage() {
                   </div>
                 )}
 
-                {/* Writer chat */}
                 {!isOwner && b.writer_id === user?.id && (
                   <Link to="/chat/$id/$peer" params={{ id, peer: assignment.student_id }} className="block mt-3">
                     <Button size="sm" variant="secondary" className="w-full rounded-xl">
@@ -277,15 +268,11 @@ function AssignmentPage() {
           </div>
         </div>
 
-        {/* ── Bid form (writers only, assignment open) ── */}
-        {!isOwner && isWriter && assignment.status === "open" && (
+        {/* Bid form — only for non-owners when assignment is open */}
+        {canBid && assignment.status === "open" && (
           <div className="rounded-3xl bg-card border border-border shadow-card p-5">
-            <h3 className="font-bold text-base mb-1">
-              {myBid ? "Update your bid" : "Place a bid"}
-            </h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Budget: ₹{assignment.budget_min}–{assignment.budget_max}
-            </p>
+            <h3 className="font-bold text-base mb-1">{myBid ? "Update your bid" : "Place a bid"}</h3>
+            <p className="text-xs text-muted-foreground mb-4">Budget: ₹{assignment.budget_min}–{assignment.budget_max}</p>
             <form onSubmit={placeBid} className="space-y-3">
               <div className="flex items-center gap-2">
                 <Button type="button" size="icon" variant="outline" onClick={() => adjust(-10)} className="rounded-xl shrink-0">
@@ -293,59 +280,37 @@ function AssignmentPage() {
                 </Button>
                 <div className="relative flex-1">
                   <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="number" required min={1}
-                    placeholder="Your price"
-                    value={bidAmount}
-                    onChange={(e) => setBidAmount(e.target.value)}
-                    className="pl-9 text-center font-bold text-lg rounded-xl"
-                    inputMode="numeric"
-                  />
+                  <Input type="number" required min={1} placeholder="Your price"
+                    value={bidAmount} onChange={(e) => setBidAmount(e.target.value)}
+                    className="pl-9 text-center font-bold text-lg rounded-xl" inputMode="numeric" />
                 </div>
                 <Button type="button" size="icon" variant="outline" onClick={() => adjust(10)} className="rounded-xl shrink-0">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
               <p className="text-[11px] text-muted-foreground text-center">Tap − / + to adjust by ₹10</p>
-              <Textarea
-                rows={2}
-                placeholder="Quick pitch — why should they pick you? (optional)"
-                value={bidMessage}
-                onChange={(e) => setBidMessage(e.target.value)}
-                className="rounded-xl resize-none"
-              />
+              <Textarea rows={2} placeholder="Quick pitch (optional)"
+                value={bidMessage} onChange={(e) => setBidMessage(e.target.value)}
+                className="rounded-xl resize-none" />
               <Button type="submit" disabled={placing} className="w-full h-12 font-semibold bg-gradient-primary rounded-2xl">
                 {placing
                   ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Placing…</span>
-                  : myBid ? "Update bid" : "Submit bid 🚀"
-                }
+                  : myBid ? "Update bid" : "Submit bid 🚀"}
               </Button>
             </form>
           </div>
         )}
 
-        {/* ── Post-accept section ── */}
+        {/* Post-accept actions */}
         {assignment.status !== "open" && assignment.accepted_bid_id && (
-          <PostAcceptSection
-            assignmentId={id}
-            assignment={assignment}
-            userId={user?.id}
-          />
-        )}
-
-        {isOwner && assignment.status === "open" && (
-          <p className="text-center text-xs text-muted-foreground py-2">
-            This is your assignment. Sign in as a writer to bid.
-          </p>
+          <PostAcceptSection assignmentId={id} assignment={assignment} userId={user?.id} />
         )}
       </div>
     </div>
   );
 }
 
-interface AssignmentLite {
-  student_id: string; accepted_bid_id: string | null; title: string;
-}
+interface AssignmentLite { student_id: string; accepted_bid_id: string | null; title: string; }
 
 function PostAcceptSection({ assignmentId, assignment, userId }: {
   assignmentId: string; assignment: AssignmentLite; userId?: string;
@@ -390,14 +355,30 @@ function PostAcceptSection({ assignmentId, assignment, userId }: {
   const uploadAssignmentFile = async (f: File) => {
     if (!userId) return;
     if (f.size > 25 * 1024 * 1024) return toast.error("File must be under 25 MB");
+    if (f.size === 0) return toast.error("File is empty");
     setUploading(true);
     try {
-      const path = `${userId}/assignment-${assignmentId}-${Date.now()}-${f.name}`;
-      const { error: upErr } = await supabase.storage
-        .from("assignment-files").upload(path, f, { upsert: true });
-      if (upErr) throw upErr;
+      // FIX: sanitize filename — no spaces or special chars that break storage paths
+      const cleanName = f.name
+        .replace(/[\\/]/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/[^a-zA-Z0-9._-]/g, "")
+        .slice(-80) || "assignment.dat";
+      const path = `${userId}/assignment-${assignmentId}-${Date.now()}-${cleanName}`;
 
-      const { error } = await supabase.from("assignment_files").upsert({
+      const { error: upErr } = await supabase.storage
+        .from("assignment-files")
+        .upload(path, f, { upsert: true, contentType: f.type || "application/octet-stream" });
+      if (upErr) {
+        console.error("Storage upload error:", upErr);
+        throw new Error(
+          upErr.message?.includes("row-level security") || upErr.message?.includes("permission")
+            ? "Storage permission denied. Please ask admin to re-run the SQL fix in Supabase."
+            : upErr.message || "Upload failed"
+        );
+      }
+
+      const { error: dbErr } = await supabase.from("assignment_files").upsert({
         assignment_id: assignmentId,
         bid_id: bid.id,
         writer_id: userId,
@@ -406,21 +387,25 @@ function PostAcceptSection({ assignmentId, assignment, userId }: {
         file_size: f.size,
         released: false,
       }, { onConflict: "bid_id" });
-      if (error) throw error;
+      if (dbErr) throw new Error(dbErr.message || "Failed to save file record");
 
-      // Notify student + admin
-      await supabase.from("notifications").insert([
-        { user_id: assignment.student_id, title: "Writer uploaded your file! 📄", body: "Admin is reviewing. You'll be notified when it's released.", link: `/payment/${assignmentId}` },
-      ]);
-      const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
-      if (admins?.length) {
-        await supabase.from("notifications").insert(
-          admins.map((a) => ({ user_id: a.user_id, title: "File ready to release 📤", body: assignment.title, link: "/admin" }))
-        );
-      }
-      toast.success("File uploaded! Locked until admin releases it.");
+      // Notify — wrapped in try/catch so notification failure doesn't break upload
+      try {
+        await supabase.from("notifications").insert([
+          { user_id: assignment.student_id, title: "Writer uploaded your file! 📄", body: "Admin is reviewing. You'll be notified when released.", link: `/payment/${assignmentId}` },
+        ]);
+        const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+        if (admins?.length) {
+          await supabase.from("notifications").insert(
+            admins.map((a) => ({ user_id: a.user_id, title: "File ready to release 📤", body: assignment.title, link: "/admin" }))
+          );
+        }
+      } catch (notifErr) { console.warn("Notification failed (non-critical):", notifErr); }
+
+      toast.success("File uploaded! Admin will review and release it.");
       qc.invalidateQueries({ queryKey: ["assignment-file", assignmentId] });
     } catch (err: any) {
+      console.error("uploadAssignmentFile:", err);
       toast.error(err?.message ?? "Upload failed");
     } finally {
       setUploading(false);
@@ -434,7 +419,6 @@ function PostAcceptSection({ assignmentId, assignment, userId }: {
         <p className="font-bold">Bid accepted · ₹{bid.amount}</p>
       </div>
 
-      {/* Student: Pay now button */}
       {isStudent && (
         <Link to="/payment/$id" params={{ id: assignmentId }}>
           <Button className="w-full h-12 font-semibold bg-gradient-primary rounded-2xl shadow-soft">
@@ -447,60 +431,46 @@ function PostAcceptSection({ assignmentId, assignment, userId }: {
         </Link>
       )}
 
-      {/* Writer: Upload file */}
       {isWriter && (
         <div className="space-y-2">
           <div className={`text-xs px-3 py-2 rounded-xl font-medium flex items-center gap-2 ${
             !payment ? "bg-warning/10 text-warning" :
-            payment.status === "awaiting_payment" ? "bg-warning/10 text-warning" :
             payment.status === "payment_received" ? "bg-success/10 text-success" :
             "bg-muted text-muted-foreground"
           }`}>
             <Clock className="h-3.5 w-3.5 shrink-0" />
-            Payment: <strong className="ml-1">{payment?.status?.replace(/_/g, " ") ?? "not started"}</strong>
+            Payment: <strong className="ml-1">{payment?.status?.replace(/_/g, " ") ?? "not started yet"}</strong>
           </div>
 
-          <input
-            ref={fileRef}
-            type="file"
-            hidden
+          <input ref={fileRef} type="file" hidden
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) uploadAssignmentFile(f);
               if (e.target) e.target.value = "";
-            }}
-          />
-          <Button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            variant={file ? "secondary" : "outline"}
-            className="w-full rounded-2xl"
-          >
+            }} />
+
+          <Button onClick={() => fileRef.current?.click()} disabled={uploading}
+            variant={file ? "secondary" : "outline"} className="w-full rounded-2xl">
             {uploading
               ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Uploading…</span>
               : <span className="flex items-center gap-2">
                   <Upload className="h-4 w-4" />
                   {file ? "Replace uploaded file" : "Upload completed assignment"}
-                </span>
-            }
+                </span>}
           </Button>
 
           {file && (
             <div className="flex items-center gap-2 bg-muted/50 rounded-xl px-3 py-2 text-xs text-muted-foreground">
-              {file.released
-                ? <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
-                : <Lock className="h-3.5 w-3.5 shrink-0" />}
+              {file.released ? <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" /> : <Lock className="h-3.5 w-3.5 shrink-0" />}
               <FileText className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{file.file_name}</span>
-              <span className="ml-auto shrink-0 text-primary font-medium">
-                {file.released ? "Released ✓" : "Locked"}
-              </span>
+              <span className="ml-auto shrink-0 text-primary font-medium">{file.released ? "Released ✓" : "Locked"}</span>
             </div>
           )}
 
           {payment?.status === "file_delivered" && (
             <div className="bg-success/10 text-success text-xs px-3 py-2.5 rounded-xl font-medium">
-              🎉 Payment released! The owner will send ₹{payment.writer_payout} to your UPI.
+              🎉 Payment released! Check your UPI for ₹{payment.writer_payout}.
             </div>
           )}
         </div>
