@@ -2,11 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { ArrowLeft, IndianRupee, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, IndianRupee, Loader2, Globe, Calendar, Compass } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/post")({
@@ -14,36 +10,24 @@ export const Route = createFileRoute("/_app/post")({
 });
 
 const SUBJECTS = [
-  { label: "Math",    emoji: "📐" },
+  { label: "Math", emoji: "📐" },
   { label: "Science", emoji: "🔬" },
   { label: "English", emoji: "📝" },
   { label: "History", emoji: "📜" },
-  { label: "Coding",  emoji: "💻" },
-  { label: "Art",     emoji: "🎨" },
+  { label: "Coding", emoji: "💻" },
+  { label: "Art", emoji: "🎨" },
 ];
 
 function PostPage() {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
-  const [title,       setTitle]       = useState("");
+  const { user } = useAuth();
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [subject,     setSubject]     = useState("Math");
-  const [budgetMin,   setBudgetMin]   = useState(100);
-  const [budgetMax,   setBudgetMax]   = useState(500);
-  const [deadline,    setDeadline]    = useState("");
-  const [loading,     setLoading]     = useState(false);
-
-  // Writers can't post — only students
-  // Role check removed — anyone can post
-  if (false) return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
-      <div className="text-6xl mb-4">✍️</div>
-      <h2 className="text-xl font-bold">You're a writer</h2>
-      <p className="text-sm text-muted-foreground mt-2">Writers bid on assignments, they don't post them.</p>
-      <button onClick={() => navigate({ to: "/feed" })}
-        className="mt-4 text-primary text-sm underline">← Browse assignments</button>
-    </div>
-  );
+  const [subject, setSubject] = useState("Math");
+  const [budgetMin, setBudgetMin] = useState(100);
+  const [budgetMax, setBudgetMax] = useState(500);
+  const [deadline, setDeadline] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,131 +39,162 @@ function PostPage() {
     setLoading(true);
     const { data, error } = await supabase.from("assignments").insert({
       student_id: user.id,
-      title, description, subject,
+      title,
+      description,
+      subject,
       budget_min: budgetMin,
       budget_max: budgetMax,
       deadline: new Date(deadline).toISOString(),
     }).select("id").single();
+    
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Assignment posted! Writers can now bid. 🎯");
     navigate({ to: "/assignment/$id", params: { id: data.id } });
   };
 
-  // Min deadline = 1 hour from now
   const minDeadline = new Date(Date.now() + 3600_000).toISOString().slice(0, 16);
 
   return (
-    <div className="pb-8">
-      {/* Header */}
-      <div className="bg-gradient-hero px-4 pt-8 pb-16 text-primary-foreground relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10" />
-        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
-        <div className="relative">
-          <button onClick={() => navigate({ to: "/feed" })}
-            className="mb-4 text-primary-foreground/80 hover:text-white flex items-center gap-1.5 text-sm transition">
-            <ArrowLeft className="h-4 w-4" /> Back
-          </button>
-          <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Post an assignment</h1>
-          </div>
-          <p className="text-sm text-primary-foreground/75">Writers will bid — you pick the best price.</p>
+    <div className="min-h-screen bg-white pb-32 dark:bg-zinc-950">
+      {/* Premium Sticky Action Header */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-zinc-100 bg-white/80 px-4 backdrop-blur-md dark:border-zinc-900 dark:bg-zinc-950/80">
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/feed" })}
+          className="flex items-center gap-1 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Cancel</span>
+        </button>
+        <h1 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">New Assignment</h1>
+        <button
+          type="submit"
+          form="assignment-form"
+          disabled={loading || !title || !description || !deadline}
+          className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white transition-all hover:bg-zinc-800 disabled:opacity-30 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          {loading && <Loader2 className="h-3 w-3 animate-spin" />}
+          <span>{loading ? "Publishing" : "Publish"}</span>
+        </button>
+      </header>
+
+      <div className="mx-auto max-w-md px-4 pt-6">
+        {/* Visibility context badge */}
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-zinc-100 bg-zinc-50 px-3 py-1 text-[11px] font-medium text-zinc-600 dark:border-zinc-800/60 dark:bg-zinc-900/40 dark:text-zinc-400">
+          <Globe className="h-3 w-3 opacity-70" />
+          <span>Open to all verified platform writers</span>
         </div>
-      </div>
 
-      <div className="px-4 -mt-10 relative z-10">
-        <form onSubmit={submit} className="space-y-4">
-          {/* Title */}
-          <div className="rounded-3xl bg-card border border-border shadow-card p-5 space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="title" className="font-semibold">What do you need help with?</Label>
-              <Input
-                id="title" required maxLength={120}
-                value={title} onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Class 10 Algebra worksheet"
-                className="rounded-xl h-12"
-              />
-            </div>
+        <form id="assignment-form" onSubmit={submit} className="mt-6 space-y-6">
+          {/* Main Title Input */}
+          <div className="space-y-1">
+            <input
+              type="text"
+              required
+              maxLength={120}
+              placeholder="What do you need help with?"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full bg-transparent text-xl font-bold tracking-tight text-zinc-900 placeholder-zinc-300 focus:outline-none dark:text-zinc-50 dark:placeholder-zinc-700"
+            />
+          </div>
 
-            {/* Subject */}
-            <div className="space-y-2">
-              <Label className="font-semibold">Subject</Label>
-              <div className="flex flex-wrap gap-2">
-                {SUBJECTS.map(({ label, emoji }) => (
+          {/* Subject Filter Chips */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              <Compass className="h-3.5 w-3.5" />
+              <span>Subject Category</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {SUBJECTS.map(({ label, emoji }) => {
+                const isSelected = subject === label;
+                return (
                   <button
-                    type="button" key={label} onClick={() => setSubject(label)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
-                      subject === label
-                        ? "border-primary bg-primary/10 text-primary scale-105"
-                        : "border-border text-muted-foreground hover:border-primary/40"
+                    type="button"
+                    key={label}
+                    onClick={() => setSubject(label)}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all active:scale-95 ${
+                      isSelected
+                        ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-50 dark:bg-zinc-50 dark:text-zinc-900"
+                        : "border-zinc-100 bg-zinc-50 text-zinc-600 hover:border-zinc-200 dark:border-zinc-900 dark:bg-zinc-900/40 dark:text-zinc-400"
                     }`}
                   >
-                    <span>{emoji}</span>{label}
+                    <span>{emoji}</span>
+                    <span>{label}</span>
                   </button>
-                ))}
+                );
+              })}
+            </div>
+          </div>
+
+          <hr className="border-zinc-100 dark:border-zinc-900" />
+
+          {/* Core Body Description Textarea */}
+          <div className="space-y-1">
+            <textarea
+              required
+              rows={8}
+              placeholder="Provide clean instructions, specific problem sets, deliverables, or structure requirements..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full resize-none bg-transparent text-sm leading-relaxed text-zinc-600 placeholder-zinc-400 focus:outline-none dark:text-zinc-400 dark:placeholder-zinc-600"
+            />
+          </div>
+
+          <hr className="border-zinc-100 dark:border-zinc-900" />
+
+          {/* Parameters Metadata Block */}
+          <div className="space-y-5 rounded-2xl bg-zinc-50/50 p-4 dark:bg-zinc-900/20">
+            {/* Dual Budget Inputs */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                <IndianRupee className="h-3.5 w-3.5" />
+                <span>Budget Envelope (INR)</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs font-medium text-zinc-400">Min</span>
+                  <input
+                    type="number"
+                    min={10}
+                    inputMode="numeric"
+                    value={budgetMin}
+                    onChange={(e) => setBudgetMin(+e.target.value)}
+                    className="w-full rounded-xl border border-zinc-100 bg-white py-2 pl-10 pr-3 text-xs font-semibold text-zinc-800 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+                  />
+                </div>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs font-medium text-zinc-400">Max</span>
+                  <input
+                    type="number"
+                    min={10}
+                    inputMode="numeric"
+                    value={budgetMax}
+                    onChange={(e) => setBudgetMax(+e.target.value)}
+                    className="w-full rounded-xl border border-zinc-100 bg-white py-2 pl-11 pr-3 text-xs font-semibold text-zinc-800 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label htmlFor="desc" className="font-semibold">Full details</Label>
-              <Textarea
-                id="desc" required rows={4}
-                value={description} onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your assignment in detail — topic, format, any special requirements…"
-                className="rounded-xl resize-none"
+            {/* Target Timeline Field */}
+            <div className="space-y-2">
+              <label htmlFor="deadline" className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>Target Deadline</span>
+              </label>
+              <input
+                id="deadline"
+                type="datetime-local"
+                required
+                min={minDeadline}
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                className="w-full rounded-xl border border-zinc-100 bg-white px-3 py-2 text-xs font-medium text-zinc-800 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
               />
             </div>
           </div>
-
-          {/* Budget */}
-          <div className="rounded-3xl bg-card border border-border shadow-card p-5">
-            <Label className="font-semibold block mb-3">Your budget range</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="min" className="text-xs text-muted-foreground">Min (₹)</Label>
-                <div className="relative">
-                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="min" type="number" min={10}
-                    value={budgetMin} onChange={(e) => setBudgetMin(+e.target.value)}
-                    className="pl-9 rounded-xl" inputMode="numeric" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="max" className="text-xs text-muted-foreground">Max (₹)</Label>
-                <div className="relative">
-                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="max" type="number" min={10}
-                    value={budgetMax} onChange={(e) => setBudgetMax(+e.target.value)}
-                    className="pl-9 rounded-xl" inputMode="numeric" />
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 text-center text-sm text-muted-foreground bg-muted/50 rounded-xl py-2">
-              Writers will bid between <strong className="text-primary">₹{budgetMin}</strong> and <strong className="text-primary">₹{budgetMax}</strong>
-            </div>
-          </div>
-
-          {/* Deadline */}
-          <div className="rounded-3xl bg-card border border-border shadow-card p-5">
-            <Label htmlFor="deadline" className="font-semibold block mb-2">Deadline</Label>
-            <Input
-              id="deadline" type="datetime-local"
-              required min={minDeadline}
-              value={deadline} onChange={(e) => setDeadline(e.target.value)}
-              className="rounded-xl h-12"
-            />
-            <p className="text-xs text-muted-foreground mt-2">Writers will only bid if they can meet your deadline.</p>
-          </div>
-
-          <Button type="submit" disabled={loading}
-            className="w-full h-14 text-base font-bold bg-gradient-primary shadow-glow rounded-2xl">
-            {loading
-              ? <span className="flex items-center gap-2"><Loader2 className="h-5 w-5 animate-spin" />Posting…</span>
-              : <span className="flex items-center gap-2"><Sparkles className="h-5 w-5" />Post assignment 🎯</span>
-            }
-          </Button>
         </form>
       </div>
     </div>
