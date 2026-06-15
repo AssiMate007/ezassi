@@ -23,15 +23,19 @@ export const Route = createFileRoute("/_app/feed")({
 
 function SkeletonCard() {
   return (
-    <div className="rounded-2xl bg-card border border-border overflow-hidden">
-      <div className="h-1 w-full shimmer" />
-      <div className="p-4 space-y-3">
-        <div className="h-5 w-20 rounded-full shimmer" />
-        <div className="h-4 w-full rounded shimmer" />
-        <div className="h-4 w-3/4 rounded shimmer" />
-        <div className="flex justify-between mt-2">
-          <div className="h-4 w-16 rounded shimmer" />
-          <div className="h-4 w-24 rounded shimmer" />
+    <div className="rounded-2xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="h-5 w-20 rounded-md bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+          <div className="h-4 w-12 rounded-md bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          <div className="h-5 w-full rounded-md bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+          <div className="h-4 w-3/4 rounded-md bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+        </div>
+        <div className="pt-2 flex justify-between items-center border-t border-zinc-50 dark:border-zinc-800/60">
+          <div className="h-4 w-24 rounded-md bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+          <div className="h-4 w-16 rounded-md bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
         </div>
       </div>
     </div>
@@ -55,7 +59,7 @@ function FeedPage() {
       if (error) throw error;
       return data ?? [];
     },
-    refetchInterval: 30_000, // auto-refresh every 30s
+    refetchInterval: 30_000,
   });
 
   const filtered = (assignments ?? []).filter((a) => {
@@ -69,91 +73,105 @@ function FeedPage() {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <div className="pb-4">
-      {/* Hero header */}
-      <div className="bg-gradient-hero px-4 pt-10 pb-7 text-primary-foreground relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/3 blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-black/10 translate-y-1/2 -translate-x-1/4 blur-2xl pointer-events-none" />
-
-        <div className="relative flex items-start justify-between">
-          <div>
-            <p className="text-sm text-primary-foreground/80 font-medium">{greeting}, {firstName} 👋</p>
-            <h1 className="text-3xl font-bold mt-0.5 flex items-center gap-2">
-              <Sparkles className="h-7 w-7" />
-              AssiMate
-            </h1>
-            <p className="text-sm text-primary-foreground/70 mt-1">
-              {assignments?.length ?? 0} open assignments
-            </p>
+    <div className="min-h-screen bg-zinc-50/50 pb-12 dark:bg-zinc-950">
+      {/* Premium Structural Header Layout */}
+      <header className="border-b border-zinc-100 bg-white px-4 pt-10 pb-8 dark:border-zinc-900 dark:bg-zinc-900/20">
+        <div className="mx-auto max-w-3xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                {greeting}, {firstName}
+              </p>
+              <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                <Sparkles className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
+                AssiMate
+              </h1>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                {assignments?.length ?? 0} active project marketplaces open
+              </p>
+            </div>
+            
+            <Link
+              to="/post"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white shadow-sm transition-all hover:bg-zinc-800 active:scale-[0.98] dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Post</span>
+            </Link>
           </div>
-          <Link
-            to="/post"
-            className="rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 text-white p-3 shadow-soft hover:bg-white/30 transition-all active:scale-95"
-            aria-label="Post assignment"
-          >
-            <Plus className="h-5 w-5" />
-          </Link>
+
+          {/* Minimalist Context Tags */}
+          <div className="mt-5 flex flex-wrap gap-3">
+            <div className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+              <TrendingUp className="h-3.5 w-3.5 text-zinc-400" />
+              <span>Real-time Bidding Active</span>
+            </div>
+            <span className="text-zinc-300 dark:text-zinc-800">•</span>
+            <div className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+              <BookOpen className="h-3.5 w-3.5 text-zinc-400" />
+              <span>Verified Student Network</span>
+            </div>
+          </div>
         </div>
+      </header>
 
-        {/* Stats pills */}
-        <div className="flex gap-2 mt-4">
-          <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs font-medium">
-            <TrendingUp className="h-3 w-3" />
-            Live bids
-          </div>
-          <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs font-medium">
-            <BookOpen className="h-3 w-3" />
-            All subjects
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 -mt-3 relative z-10">
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* Main Container Workspace */}
+      <main className="mx-auto max-w-3xl px-4 pt-6">
+        {/* Search Field */}
+        <div className="relative mb-5">
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 transition-colors group-focus-within:text-zinc-900 dark:text-zinc-500" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search assignments…"
-            className="pl-10 h-12 rounded-2xl bg-card border-border shadow-card text-sm"
+            placeholder="Search active assignments by keyword..."
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-4 text-sm shadow-sm transition-all placeholder:text-zinc-400 focus-visible:border-zinc-400 focus-visible:ring-0 dark:border-zinc-800 dark:bg-zinc-900 dark:placeholder:text-zinc-500 dark:focus-visible:border-zinc-700"
           />
         </div>
 
-        {/* Subject chips */}
-        <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-none mb-2">
-          {SUBJECTS.map(({ label, emoji }) => (
-            <button
-              key={label}
-              onClick={() => setSubject(label)}
-              className={`shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                subject === label
-                  ? "bg-gradient-primary text-primary-foreground shadow-soft scale-105"
-                  : "bg-card text-muted-foreground border border-border hover:border-primary/40 hover:text-primary"
-              }`}
-            >
-              <span>{emoji}</span>
-              {label}
-            </button>
-          ))}
+        {/* Horizontal Scroll Subject Filters */}
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {SUBJECTS.map(({ label, emoji }) => {
+            const isActive = subject === label;
+            return (
+              <button
+                key={label}
+                onClick={() => setSubject(label)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-medium border transition-all duration-150 ${
+                  isActive
+                    ? "bg-zinc-900 border-zinc-900 text-white dark:bg-zinc-100 dark:border-zinc-100 dark:text-zinc-950 shadow-sm"
+                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-200"
+                }`}
+              >
+                <span>{emoji}</span>
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Cards */}
-        <div className="space-y-3 mt-1">
+        {/* Dynamic Assignment List Output */}
+        <div className="space-y-3">
           {isLoading && Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
 
           {!isLoading && filtered.length === 0 && (
-            <div className="text-center py-16 px-4">
-              <div className="text-6xl mb-4 animate-float">📚</div>
-              <p className="font-bold text-lg">No assignments found</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {search ? "Try a different search term" : "Be the first to post one!"}
+            <div className="rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-16 text-center dark:border-zinc-800 dark:bg-zinc-900/20">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-50 text-xl dark:bg-zinc-900">
+                📚
+              </div>
+              <h3 className="mt-4 text-sm font-semibold text-zinc-900 dark:text-zinc-200">
+                No assignments found
+              </h3>
+              <p className="mx-auto mt-1 max-w-xs text-xs text-zinc-500 dark:text-zinc-400">
+                {search 
+                  ? "We couldn't find matches for that specific query. Try checking your spelling or selecting another subject filter." 
+                  : "The board is clear right now. Post your requirements to start receiving bids from expert freelancers immediately."}
               </p>
+              
               <Link
                 to="/post"
-                className="inline-flex items-center gap-2 mt-4 bg-gradient-primary text-primary-foreground px-5 py-2.5 rounded-2xl font-medium text-sm shadow-soft"
+                className="mt-5 inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-zinc-100 px-4 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
               >
-                <Plus className="h-4 w-4" /> Post assignment
+                <Plus className="h-3.5 w-3.5" /> Post an assignment
               </Link>
             </div>
           )}
@@ -174,7 +192,7 @@ function FeedPage() {
             />
           ))}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
