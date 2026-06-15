@@ -27,16 +27,16 @@ function AppLayout() {
             <span className="text-[10px] font-bold tracking-wide">Explore</span>
           </Link>
 
-          {/* Chats List Tab */}
+          {/* Chats List Tab - Fixed to align with the singular route structure */}
           <Link 
-            to="/chats" 
+            to="/chat" 
             className="flex flex-col items-center gap-1 text-zinc-400 transition-colors hover:text-zinc-600 [&.active]:text-zinc-900 dark:hover:text-zinc-300 dark:[&.active]:text-zinc-50"
           >
             <MessageSquare className="h-5 w-5" />
             <span className="text-[10px] font-bold tracking-wide">Chats</span>
           </Link>
 
-          {/* FIX: Points strictly to the base /profile route. No residual chat params can hijack it anymore! */}
+          {/* Profile Tab - Fixed path alignment */}
           <Link 
             to="/profile" 
             className="flex flex-col items-center gap-1 text-zinc-400 transition-colors hover:text-zinc-600 [&.active]:text-zinc-900 dark:hover:text-zinc-300 dark:[&.active]:text-zinc-50"
