@@ -630,20 +630,20 @@ function AdminPage() {
               <h2 className="font-bold text-base">Review Payments & Files</h2>
               {paymentsLoading&&<RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground"/>}
             </div>
-            {!payments?.length&&!paymentsLoading&&(
+            {payments?.filter(p=>p.status!=="file_delivered"&&p.status!=="cancelled").length===0&&!paymentsLoading&&(
               <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
-                <div className="text-4xl mb-2">📭</div><p className="text-sm text-muted-foreground">No payments yet</p>
+                <div className="text-4xl mb-2">✅</div><p className="text-sm font-semibold text-success">All clear!</p><p className="text-xs text-muted-foreground mt-1">No pending items to review</p>
               </div>
             )}
             <div className="space-y-4">
-              {[...(payments??[])].sort((a,b)=>{
+              {/* Only show active payments — done/cancelled are hidden */}
+              {[...(payments??[])].filter(p=>p.status!=="file_delivered"&&p.status!=="cancelled").sort((a,b)=>{
                 const score=(p:PaymentRow)=>{
                   const f=fileForPayment(p);
                   if(p.status==="awaiting_payment"&&p.screenshot_url) return 0;
                   if(p.status==="payment_received"&&f&&!f.released) return 1;
                   if(p.status==="awaiting_payment"&&!p.screenshot_url) return 2;
                   if(p.status==="payment_received") return 3;
-                  if(p.status==="file_delivered") return 5;
                   return 4;
                 };
                 return score(a)-score(b);
@@ -653,27 +653,6 @@ function AdminPage() {
                 const noScreenshot = p.status==="awaiting_payment"&&!p.screenshot_url;
                 const needsRelease = p.status==="payment_received"&&!!f&&!f.released;
                 const waitingFile  = p.status==="payment_received"&&!f;
-                const done         = p.status==="file_delivered";
-                const cancelled    = p.status==="cancelled";
-
-                // Collapsed minimal card for done/cancelled — keeps Review tab clean
-                if (done || cancelled) return (
-                  <div key={p.id} className={`rounded-2xl bg-card border px-4 py-3 flex items-center justify-between gap-3 ${done?"border-success/20":"border-border opacity-50"}`}>
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      {done ? <CheckCircle2 className="h-4 w-4 text-success shrink-0"/> : <XCircle className="h-4 w-4 text-muted-foreground shrink-0"/>}
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{p.assignment?.title??"Untitled"}</p>
-                        <p className="text-[11px] text-muted-foreground">{done?`₹${p.amount} · Released ${p.released_at?new Date(p.released_at).toLocaleDateString():"—"}`:"Cancelled"}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <StatusBadge status={p.status}/>
-                      <Link to="/assignment/$id" params={{id:p.assignment_id}}>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-lg"><ExternalLink className="h-3.5 w-3.5"/></Button>
-                      </Link>
-                    </div>
-                  </div>
-                );
 
                 return (
                   <div key={p.id} className={`rounded-3xl bg-card border p-5 shadow-card ${
@@ -686,8 +665,6 @@ function AdminPage() {
                     {noScreenshot && <Banner color="muted"   icon={<Clock className="h-4 w-4"/>}        text="Waiting for student to upload payment screenshot"/>}
                     {needsRelease && <Banner color="primary" icon={<FileText className="h-4 w-4"/>}     text="Assignment file ready — review then approve or reject"/>}
                     {waitingFile  && <Banner color="muted"   icon={<Clock className="h-4 w-4"/>}        text="Payment confirmed — waiting for writer to upload file"/>}
-                    {done         && <Banner color="success" icon={<CheckCircle2 className="h-4 w-4"/>} text="Complete — file delivered to student"/>}
-                    {cancelled    && <Banner color="muted"   icon={<XCircle className="h-4 w-4"/>}      text="Cancelled"/>}
 
                     {/* Title + status */}
                     <div className="flex items-start justify-between gap-2 mb-3">
@@ -819,7 +796,8 @@ function AdminPage() {
           <TabsContent value="assignments" className="mt-4">
             <h2 className="font-bold text-base mb-3">All Assignments ({allAssignments?.length??0})</h2>
             <div className="space-y-3">
-              {allAssignments?.map(a=>(
+              {/* Only show active assignments — completed/cancelled are hidden */}
+              {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled").map(a=>(
                 <div key={a.id} className="rounded-2xl bg-card border border-border p-4 shadow-card">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
@@ -860,9 +838,11 @@ function AdminPage() {
                   </div>
                 </div>
               ))}
-              {!allAssignments?.length&&(
+              {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled").length===0&&(
                 <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
-                  <div className="text-4xl mb-2">📋</div><p className="text-sm text-muted-foreground">No assignments yet</p>
+                  <div className="text-4xl mb-2">✅</div>
+                  <p className="text-sm font-semibold text-success">All clear!</p>
+                  <p className="text-xs text-muted-foreground mt-1">No active assignments</p>
                 </div>
               )}
             </div>
