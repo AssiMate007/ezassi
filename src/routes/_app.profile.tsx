@@ -1,288 +1,247 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { 
-  ArrowLeft, Send, Loader2, Calendar, IndianRupee, 
-  ChevronDown, ChevronUp, FileText, Compass, Info 
+import { useTheme } from "@/hooks/use-theme";
+import { useIsAdmin } from "@/hooks/use-admin";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Star, LogOut, GraduationCap, PenLine, Wallet,
+  CheckCircle2, Eye, EyeOff, Shield, Moon, Sun,
 } from "lucide-react";
+import { AssignmentCard } from "@/components/AssignmentCard";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
 
-export const Route = createFileRoute("/_app/chat/$id/$peer")({
-  component: ChatRoomPage,
+export const Route = createFileRoute("/_app/profile")({
+  component: ProfilePage,
 });
 
-function ChatRoomPage() {
-  const { id: assignmentId, peer: peerId } = Route.useParams();
+function Avatar({ name, size = 80 }: { name: string; size?: number }) {
+  const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  return (
+    <div
+      className="rounded-full flex items-center justify-center font-bold text-white bg-gradient-primary ring-4 ring-white/30 shadow-glow"
+      style={{ width: size, height: size, fontSize: size * 0.34 }}
+    >
+      {initials}
+    </div>
+  );
+}
+
+function ProfilePage() {
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  
-  const [typedMessage, setTypedMessage] = useState("");
-  const [showDetails, setShowDetails] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const isAdmin = useIsAdmin();
+  const { theme, toggle: toggleTheme } = useTheme();
+  const [upiId, setUpiId] = useState("");
+  const [showUpi, setShowUpi] = useState(false);
+  const [savingUpi, setSavingUpi] = useState(false);
 
-  // 1. CRASH FIX: Fetch assignment details by safely mapping through accepted_bid_id
-  const { data: workspace, isLoading: loadingWorkspace } = useQuery({
-    queryKey: ["chat-workspace", assignmentId, peerId],
-    enabled: !!user,
-    queryFn: async () => {
-      // Fetch assignment and peer profile details securely
-      const [assignmentRes, peerRes] = await Promise.all([
-        supabase
-          .from("assignments")
-          .select(`
-            *,
-            accepted_bid:bids!assignments_accepted_bid_id_fkey (
-              id,
-              writer_id,
-              amount
-            )
-          `)
-          .eq("id", assignmentId)
-          .single(),
-        supabase
-          .from("profiles")
-          .select("display_name, role")
-          .eq("id", peerId)
-          .single()
-      ]);
-
-      if (assignmentRes.error) throw assignmentRes.error;
-      if (peerRes.error) throw peerRes.error;
-
-      return {
-        assignment: assignmentRes.data,
-        peer: peerRes.data
-      };
-    }
-  });
-
-  // 2. Fetch Chat Messages Stream
-  const { data: messages, isLoading: loadingMessages } = useQuery({
-    queryKey: ["chat-messages", assignmentId],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("assignment_id", assignmentId)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
-    }
-  });
-
-  // 3. Realtime Subscription Pipeline setup
   useEffect(() => {
-    if (!user || !assignmentId) return;
+    if (profile?.upi_id !== undefined) setUpiId(profile.upi_id ?? "");
+  }, [profile]);
 
-    const channel = supabase
-      .channel(`room:${assignmentId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `assignment_id=eq.${assignmentId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["chat-messages", assignmentId] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [assignmentId, user]);
-
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, showDetails]);
-
-  // 4. Message Dispatch Mutation Loop
-  const sendMessageMutation = useMutation({
-    mutationFn: async (text: string) => {
-      if (!user) return;
-      const { error } = await supabase.from("messages").insert({
-        assignment_id: assignmentId,
-        sender_id: user.id,
-        receiver_id: peerId,
-        content: text.trim(),
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setTypedMessage("");
-      queryClient.invalidateQueries({ queryKey: ["chat-messages", assignmentId] });
-    },
-    onError: (err: any) => {
-      toast.error(err.message || "Failed to deliver message");
-    }
-  });
-
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!typedMessage.trim() || sendMessageMutation.isPending) return;
-    sendMessageMutation.mutate(typedMessage);
+  const saveUpi = async () => {
+    if (!user) return;
+    const trimmed = upiId.trim();
+    if (trimmed && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed))
+      return toast.error("Enter a valid UPI ID e.g. name@okhdfcbank");
+    setSavingUpi(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ upi_id: trimmed || null } as never)
+      .eq("id", user.id);
+    setSavingUpi(false);
+    if (error) return toast.error(error.message);
+    toast.success("UPI ID saved ✓");
   };
 
-  if (loadingWorkspace || loadingMessages) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-950">
-        <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
-      </div>
-    );
-  }
+  const { data: myAssignments } = useQuery({
+    queryKey: ["my-assignments", user?.id, profile?.role],
+    enabled: !!profile,
+    queryFn: async () => {
+      if (!user || !profile) return [];
+      if (profile.role === "student") {
+        const { data } = await supabase
+          .from("assignments")
+          .select("*, bids(count)")
+          .eq("student_id", user.id)
+          .order("created_at", { ascending: false });
+        return data ?? [];
+      } else {
+        const { data } = await supabase
+          .from("bids")
+          .select("*, assignment:assignments(*)")
+          .eq("writer_id", user.id)
+          .order("created_at", { ascending: false });
+        return (data ?? []).map((b) => b.assignment).filter(Boolean);
+      }
+    },
+  });
 
-  const assignment = workspace?.assignment;
-  const peer = workspace?.peer;
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
+  };
+
+  if (!profile) return (
+    <div className="p-8 space-y-3">
+      <div className="h-20 rounded-xl shimmer" />
+      <div className="h-10 rounded-xl shimmer" />
+      <div className="h-6 rounded-xl shimmer" />
+    </div>
+  );
+
+  const maskedUpi = profile.upi_id
+    ? profile.upi_id.replace(/^(.{3}).*(@.*)$/, (_, a, b) => `${a}${"•".repeat(6)}${b}`)
+    : null;
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-50/60 dark:bg-zinc-950">
-      
-      {/* Premium Header Utility Stack */}
-      <header className="sticky top-0 z-40 border-b border-zinc-100 bg-white/90 backdrop-blur-md dark:border-zinc-900 dark:bg-zinc-950/90">
-        <div className="flex h-14 items-center justify-between px-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => navigate({ to: "/chats" })}
-              className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div className="min-w-0">
-              <h1 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 truncate">
-                {peer?.display_name || "Workspace Room"}
-              </h1>
-              <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider dark:text-zinc-500">
-                {peer?.role}
+    <div className="pb-4">
+      {/* Hero */}
+      <div className="bg-gradient-hero px-4 pt-12 pb-20 text-primary-foreground relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/5" />
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+        <div className="relative flex flex-col items-center text-center">
+          <Avatar name={profile.display_name} size={84} />
+          <h1 className="mt-4 text-2xl font-bold">{profile.display_name}</h1>
+          <div className="mt-1.5 flex items-center gap-1.5 text-sm text-primary-foreground/85">
+            {profile.role === "student"
+              ? <GraduationCap className="h-4 w-4" />
+              : <PenLine className="h-4 w-4" />}
+            <span className="capitalize font-medium">{profile.role}</span>
+          </div>
+          {isAdmin && (
+            <Link to="/admin" className="mt-2 flex items-center gap-1.5 text-xs bg-white/20 backdrop-blur-sm border border-white/30 px-3 py-1.5 rounded-full font-semibold">
+              <Shield className="h-3.5 w-3.5" /> Admin Panel
+            </Link>
+          )}
+          <div className="mt-5 flex gap-8">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 text-xl font-bold">
+                <Star className="h-4 w-4 fill-yellow-300 text-yellow-300" />
+                {Number(profile.rating).toFixed(1)}
+              </div>
+              <p className="text-xs text-primary-foreground/70 mt-0.5">Rating</p>
+            </div>
+            <div className="w-px bg-white/25" />
+            <div className="text-center">
+              <div className="text-xl font-bold">{profile.jobs_completed}</div>
+              <p className="text-xs text-primary-foreground/70 mt-0.5">
+                {profile.role === "student" ? "Assignments" : "Jobs done"}
               </p>
             </div>
           </div>
-
-          {/* Action Trigger button to view assignment details safely */}
-          <button
-            type="button"
-            onClick={() => setShowDetails(!showDetails)}
-            className="flex items-center gap-1.5 rounded-full border border-zinc-100 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:border-zinc-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
-          >
-            <FileText className="h-3.5 w-3.5 text-zinc-400" />
-            <span>Details</span>
-            {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </button>
         </div>
+      </div>
 
-        {/* Collapsible Clean Assignment Details Panel */}
-        {showDetails && assignment && (
-          <div className="border-t border-zinc-100 bg-white p-4 animate-in slide-in-from-top-2 duration-150 dark:border-zinc-900 dark:bg-zinc-950">
-            <div className="mx-auto max-w-md space-y-3.5">
-              <div>
-                <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-                  <Compass className="h-2.5 w-2.5" /> {assignment.subject}
-                </span>
-                <h3 className="mt-1.5 text-sm font-bold text-zinc-900 dark:text-zinc-50">
-                  {assignment.title}
-                </h3>
-                <p className="mt-1 text-xs text-zinc-500 leading-relaxed dark:text-zinc-400">
-                  {assignment.description}
-                </p>
+      <div className="px-4 -mt-10 relative z-10 space-y-4">
+        {/* Dark mode toggle card */}
+        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shadow-soft ${theme === "dark" ? "bg-slate-800" : "bg-amber-50"}`}>
+                {theme === "dark"
+                  ? <Moon className="h-5 w-5 text-blue-400" />
+                  : <Sun className="h-5 w-5 text-amber-500" />}
               </div>
-
-              <div className="grid grid-cols-2 gap-3 border-t border-zinc-50 pt-3 dark:border-zinc-900/50">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-50 text-zinc-400 dark:bg-zinc-900">
-                    <IndianRupee className="h-3.5 w-3.5" />
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Budget Range</p>
-                    <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                      ₹{assignment.budget_min} - ₹{assignment.budget_max}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-50 text-zinc-400 dark:bg-zinc-900">
-                    <Calendar className="h-3.5 w-3.5" />
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Target Target</p>
-                    <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 truncate">
-                      {new Date(assignment.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                    </p>
-                  </div>
-                </div>
+              <div>
+                <p className="font-semibold text-sm">{theme === "dark" ? "Dark mode" : "Light mode"}</p>
+                <p className="text-xs text-muted-foreground">Tap to switch</p>
               </div>
             </div>
+            <button
+              onClick={toggleTheme}
+              className={`relative h-7 rounded-full transition-colors duration-300 focus:outline-none ${theme === "dark" ? "bg-primary" : "bg-muted"}`}
+              style={{ width: 52 }}
+              aria-label="Toggle theme"
+            >
+              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-300 ${theme === "dark" ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Bio */}
+        {profile.bio && (
+          <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
+            <p className="text-sm text-muted-foreground">{profile.bio}</p>
           </div>
         )}
-      </header>
 
-      {/* Messages Canvas Workspace Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        <div className="mx-auto max-w-md space-y-4">
-          
-          {/* Informational systemic header marker */}
-          <div className="flex items-center justify-center gap-1.5 text-[10px] font-medium text-zinc-400 dark:text-zinc-600 py-2">
-            <Info className="h-3 w-3" />
-            <span>All communications are logged and secured via escrow rules</span>
+        {/* UPI */}
+        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="h-8 w-8 rounded-xl bg-gradient-primary flex items-center justify-center shadow-soft">
+              <Wallet className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <h3 className="font-semibold text-sm flex-1">UPI for payouts</h3>
+            {profile.upi_id && <CheckCircle2 className="h-4 w-4 text-success" />}
           </div>
-
-          {messages?.map((msg) => {
-            const isMe = msg.sender_id === user?.id;
-            return (
-              <div
-                key={msg.id}
-                className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}
-              >
-                <div className={`max-w-[85%] space-y-0.5`}>
-                  <div
-                    className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
-                      isMe
-                        ? "bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900"
-                        : "bg-white text-zinc-800 border border-zinc-100 dark:bg-zinc-900 dark:border-zinc-800/80 dark:text-zinc-200"
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-                  <p className={`text-[9px] font-medium text-zinc-400 dark:text-zinc-600 px-1 ${isMe ? "text-right" : "text-left"}`}>
-                    {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-          <div ref={scrollRef} />
+          <p className="text-xs text-muted-foreground mb-3">
+            {profile.role === "writer" ? "Required to receive your 85% payout." : "Optional — for refunds only."}
+          </p>
+          {profile.upi_id && (
+            <div className="mb-3 flex items-center gap-2 bg-muted/60 rounded-xl px-3 py-2">
+              <span className="text-sm font-mono text-foreground flex-1">
+                {showUpi ? profile.upi_id : maskedUpi}
+              </span>
+              <button onClick={() => setShowUpi(!showUpi)} className="text-muted-foreground hover:text-foreground transition">
+                {showUpi ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              placeholder="yourname@okhdfcbank"
+              value={upiId}
+              onChange={(e) => setUpiId(e.target.value)}
+              maxLength={100}
+              autoCapitalize="none"
+              autoCorrect="off"
+              className="rounded-xl"
+            />
+            <Button onClick={saveUpi} disabled={savingUpi} className="bg-gradient-primary rounded-xl shrink-0">
+              {savingUpi ? "…" : "Save"}
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Persistent Message Input Controller Toolbar */}
-      <div className="border-t border-zinc-100 bg-white p-4 dark:border-zinc-900 dark:bg-zinc-950">
-        <form onSubmit={handleSend} className="mx-auto max-w-md flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Type your message..."
-            value={typedMessage}
-            onChange={(e) => setTypedMessage(e.target.value)}
-            disabled={sendMessageMutation.isPending}
-            className="w-full rounded-xl border border-zinc-100 bg-zinc-50/50 px-4 py-2.5 text-xs font-medium text-zinc-800 placeholder-zinc-400 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
-          />
-          <button
-            type="submit"
-            disabled={!typedMessage.trim() || sendMessageMutation.isPending}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-white transition-opacity disabled:opacity-30 dark:bg-zinc-50 dark:text-zinc-900"
-          >
-            {sendMessageMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </button>
-        </form>
-      </div>
+        {/* Assignments */}
+        <div>
+          <h2 className="font-bold text-base mb-3">
+            {profile.role === "student" ? "My assignments" : "My bids"}
+          </h2>
+          <div className="space-y-3">
+            {!myAssignments?.length ? (
+              <div className="text-center py-10 bg-card rounded-3xl border border-border">
+                <div className="text-4xl mb-2">📭</div>
+                <p className="text-sm text-muted-foreground">Nothing here yet</p>
+              </div>
+            ) : myAssignments.map((a) => a && (
+              <AssignmentCard key={a.id} a={{
+                id: a.id, title: a.title, subject: a.subject,
+                budget_min: a.budget_min, budget_max: a.budget_max, deadline: a.deadline,
+                bid_count: (a as any).bids?.[0]?.count,
+              }} />
+            ))}
+          </div>
+        </div>
 
+        {/* Sign out */}
+        <Button variant="outline" onClick={signOut} className="w-full rounded-2xl mt-2 text-muted-foreground">
+          <LogOut className="h-4 w-4 mr-2" />Sign out
+        </Button>
+
+        {/* Footer links */}
+        <div className="pt-4 border-t border-border flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+          {[["About","/about"],["Terms","/terms"],["Privacy","/privacy"],["Refunds","/refund"],["Contact","/contact"]].map(([l,h])=>(
+            <a key={h} href={h} className="hover:text-primary transition">{l}</a>
+          ))}
+        </div>
+        <p className="text-center text-[11px] text-muted-foreground">© {new Date().getFullYear()} AssiMate</p>
+      </div>
     </div>
   );
 }
