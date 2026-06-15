@@ -656,6 +656,25 @@ function AdminPage() {
                 const done         = p.status==="file_delivered";
                 const cancelled    = p.status==="cancelled";
 
+                // Collapsed minimal card for done/cancelled — keeps Review tab clean
+                if (done || cancelled) return (
+                  <div key={p.id} className={`rounded-2xl bg-card border px-4 py-3 flex items-center justify-between gap-3 ${done?"border-success/20":"border-border opacity-50"}`}>
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      {done ? <CheckCircle2 className="h-4 w-4 text-success shrink-0"/> : <XCircle className="h-4 w-4 text-muted-foreground shrink-0"/>}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{p.assignment?.title??"Untitled"}</p>
+                        <p className="text-[11px] text-muted-foreground">{done?`₹${p.amount} · Released ${p.released_at?new Date(p.released_at).toLocaleDateString():"—"}`:"Cancelled"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusBadge status={p.status}/>
+                      <Link to="/assignment/$id" params={{id:p.assignment_id}}>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-lg"><ExternalLink className="h-3.5 w-3.5"/></Button>
+                      </Link>
+                    </div>
+                  </div>
+                );
+
                 return (
                   <div key={p.id} className={`rounded-3xl bg-card border p-5 shadow-card ${
                     needsVerify  ? "border-warning/60 ring-2 ring-warning/20" :

@@ -44,6 +44,8 @@ function AssignmentPage() {
 
   const { data: assignment, isLoading } = useQuery({
     queryKey: ["assignment", id],
+    staleTime: 0,
+    refetchInterval: 8_000, // auto-refresh so student sees status updates from admin
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assignments")

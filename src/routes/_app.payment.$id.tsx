@@ -343,243 +343,156 @@ function PaymentPage() {
         </div>
       </div>
 
-      {isStudent && !payment && (
-        <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">
-              1
-            </div>
-            <div>
-              <p className="font-semibold">Ready to pay?</p>
-              <p className="text-xs text-muted-foreground">Tap to see UPI details</p>
-            </div>
-          </div>
-          <Button
-            onClick={startPayment}
-            disabled={starting}
-            className="w-full h-12 text-base font-semibold bg-gradient-primary shadow-soft rounded-2xl"
-          >
-            {starting ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Setting up…
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <IndianRupee className="h-5 w-5" />
-                Pay now — ₹{amount}
-              </span>
-            )}
-          </Button>
-        </div>
-      )}
-
-      {payment && payment.status === "awaiting_payment" && isStudent && (
-        <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">
-              2
-            </div>
-            <div>
-              <p className="font-semibold">Pay via UPI</p>
-              <p className="text-xs text-muted-foreground">GPay · PhonePe · Paytm · any UPI app</p>
-            </div>
-          </div>
-
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center justify-between bg-muted/60 rounded-2xl px-4 py-3">
-              <div>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">UPI ID</p>
-                <p className="font-mono text-sm font-semibold">{OWNER_UPI}</p>
-              </div>
-              <Button size="sm" variant="ghost" onClick={() => copy(OWNER_UPI)} className="rounded-xl">
-                <Copy className="h-4 w-4" />
+      {/* ── STATE: Complete — student downloads ── */}
+      {payment?.status === "file_delivered" && file?.released && isStudent && (
+        <div className="space-y-4 mb-4">
+          <div className="rounded-3xl bg-gradient-primary p-6 text-primary-foreground shadow-glow relative overflow-hidden">
+            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+            <div className="relative text-center">
+              <div className="text-5xl mb-3">🎉</div>
+              <p className="font-bold text-xl mb-1">Assignment complete!</p>
+              <p className="text-sm opacity-80 mb-4">{file.file_name}</p>
+              <Button onClick={downloadFile} disabled={downloading}
+                className="w-full h-12 bg-white/20 hover:bg-white/30 backdrop-blur border border-white/30 text-white font-semibold rounded-2xl">
+                {downloading
+                  ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Preparing…</span>
+                  : <span className="flex items-center gap-2"><Download className="h-5 w-5" />Download your file</span>}
               </Button>
             </div>
-            <div className="flex items-center justify-between bg-primary/8 rounded-2xl px-4 py-3">
-              <div>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Pay exactly</p>
-                <p className="font-bold text-lg text-primary flex items-center">
-                  <IndianRupee className="h-4 w-4" />
-                  {amount}
-                </p>
-              </div>
-              <Button size="sm" variant="ghost" onClick={() => copy(String(amount))} className="rounded-xl">
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-xs text-center text-muted-foreground">
-              Name: <strong>{OWNER_NAME}</strong>
-            </p>
           </div>
-
-          <div className="border-t border-border pt-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">
-                3
-              </div>
-              <div>
-                <p className="font-semibold">Upload screenshot</p>
-                <p className="text-xs text-muted-foreground">After paying — upload proof</p>
-              </div>
-            </div>
-
-            <input
-              ref={screenshotRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) uploadScreenshot(f);
-                e.target.value = "";
-              }}
-            />
-
-            <Button
-              onClick={() => screenshotRef.current?.click()}
-              disabled={uploading}
-              className={`w-full h-12 rounded-2xl font-semibold ${
-                payment.screenshot_url ? "bg-success hover:bg-success/90 text-success-foreground" : "bg-gradient-primary"
-              }`}
-            >
-              {uploading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Uploading…
-                </span>
-              ) : payment.screenshot_url ? (
-                <span className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5" />
-                  Screenshot uploaded ✓
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  Upload payment screenshot
-                </span>
-              )}
-            </Button>
-
-            {payment.screenshot_url && (
-              <div className="mt-3 flex items-center gap-2 bg-success/10 rounded-2xl px-4 py-3 text-success text-sm">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                Waiting for admin to verify. You'll get notified!
-              </div>
-            )}
+          <div className="rounded-2xl bg-card border border-border p-4 shadow-card space-y-2 text-xs">
+            <p className="font-semibold text-sm mb-2">Summary</p>
+            <div className="flex justify-between"><span className="text-muted-foreground">Amount paid</span><span className="font-semibold">₹{amount}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Writer</span><span>{acceptedBid.writer?.display_name}</span></div>
+            {payment.released_at && <div className="flex justify-between"><span className="text-muted-foreground">Released</span><span>{new Date(payment.released_at).toLocaleString()}</span></div>}
           </div>
         </div>
       )}
 
-      {payment?.status === "payment_received" && (
+      {/* ── STATE: Complete — writer sees payout ── */}
+      {payment?.status === "file_delivered" && isWriter && (
+        <div className="rounded-3xl bg-gradient-primary p-5 text-primary-foreground shadow-glow mb-4 text-center">
+          <div className="text-4xl mb-2">💸</div>
+          <p className="font-bold text-lg">Job complete!</p>
+          <p className="text-sm opacity-80 mt-1 mb-4">Your payout: ₹{writerPayout}</p>
+          {payment.writer_upi_id
+            ? <p className="text-sm bg-white/15 rounded-xl px-4 py-2.5 font-mono">{payment.writer_upi_id}</p>
+            : <p className="text-sm bg-white/15 rounded-xl px-4 py-2.5 opacity-75">Go to Profile → add your UPI to receive payout</p>}
+        </div>
+      )}
+
+      {/* ── STATE: File pending admin release ── */}
+      {payment?.status === "payment_received" && file && !file.released && isStudent && (
+        <div className="rounded-3xl bg-card border border-primary/30 shadow-card p-5 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-bold">File ready — admin reviewing</p>
+              <p className="text-sm text-muted-foreground mt-1">Writer uploaded your assignment. Admin is reviewing before releasing it to you.</p>
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1"><Clock className="h-3.5 w-3.5" />Usually a few hours</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── STATE: Payment confirmed, writer uploading ── */}
+      {payment?.status === "payment_received" && !file && isStudent && (
         <div className="rounded-3xl bg-success/10 border border-success/30 p-5 mb-4">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="h-6 w-6 text-success shrink-0 mt-0.5" />
             <div>
               <p className="font-bold text-success">Payment confirmed ✓</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Writer is working on your assignment. You'll be notified when the file is ready.
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">Writer is working on your assignment. You'll be notified when the file is ready.</p>
             </div>
           </div>
         </div>
       )}
 
-      {payment && file?.released && (
-        <div className="rounded-3xl bg-gradient-primary p-5 text-primary-foreground shadow-glow mb-4">
-          <div className="flex items-center gap-3 mb-4">
-            <Sparkles className="h-6 w-6" />
-            <div>
-              <p className="font-bold text-lg">Assignment ready! 🎉</p>
-              <p className="text-sm opacity-80">{file.file_name}</p>
+      {/* ── STATE: Awaiting — show QR + screenshot ── */}
+      {payment?.status === "awaiting_payment" && isStudent && (
+        <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4 space-y-4">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">2</div>
+              <div><p className="font-semibold">Pay via UPI</p><p className="text-xs text-muted-foreground">GPay · PhonePe · Paytm · any UPI app</p></div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between bg-muted/60 rounded-2xl px-4 py-3">
+                <div><p className="text-[11px] text-muted-foreground uppercase tracking-wide">UPI ID</p><p className="font-mono text-sm font-semibold">{OWNER_UPI}</p></div>
+                <Button size="sm" variant="ghost" onClick={() => copy(OWNER_UPI)} className="rounded-xl"><Copy className="h-4 w-4" /></Button>
+              </div>
+              <div className="flex items-center justify-between bg-primary/8 rounded-2xl px-4 py-3">
+                <div><p className="text-[11px] text-muted-foreground uppercase tracking-wide">Pay exactly</p><p className="font-bold text-lg text-primary flex items-center"><IndianRupee className="h-4 w-4" />{amount}</p></div>
+                <Button size="sm" variant="ghost" onClick={() => copy(String(amount))} className="rounded-xl"><Copy className="h-4 w-4" /></Button>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">Name: <strong>{OWNER_NAME}</strong></p>
             </div>
           </div>
-          <Button
-            onClick={downloadFile}
-            disabled={downloading}
-            className="w-full h-12 bg-white/20 hover:bg-white/30 backdrop-blur border border-white/30 text-white font-semibold rounded-2xl"
-          >
-            {downloading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Preparing…
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <Download className="h-5 w-5" />
-                Download file
-              </span>
+          <div className="border-t border-border pt-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">3</div>
+              <div><p className="font-semibold">Upload screenshot</p><p className="text-xs text-muted-foreground">After paying — upload proof to notify admin</p></div>
+            </div>
+            <input ref={screenshotRef} type="file" accept="image/*" hidden
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadScreenshot(f); e.target.value = ""; }} />
+            <Button onClick={() => screenshotRef.current?.click()} disabled={uploading}
+              className={`w-full h-12 rounded-2xl font-semibold ${payment.screenshot_url ? "bg-success hover:bg-success/90 text-success-foreground" : "bg-gradient-primary"}`}>
+              {uploading
+                ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Uploading…</span>
+                : payment.screenshot_url
+                  ? <span className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" />Screenshot uploaded ✓ — tap to replace</span>
+                  : <span className="flex items-center gap-2"><Upload className="h-5 w-5" />Upload payment screenshot</span>}
+            </Button>
+            {payment.screenshot_url && (
+              <div className="mt-3 flex items-center gap-2 bg-success/10 rounded-2xl px-4 py-3 text-success text-sm">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />Waiting for admin to verify. You'll be notified!
+              </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── STATE: Not started yet ── */}
+      {isStudent && !payment && (
+        <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">1</div>
+            <div><p className="font-semibold">Ready to pay?</p><p className="text-xs text-muted-foreground">Tap to see UPI details</p></div>
+          </div>
+          <Button onClick={startPayment} disabled={starting}
+            className="w-full h-12 text-base font-semibold bg-gradient-primary shadow-soft rounded-2xl">
+            {starting
+              ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Setting up…</span>
+              : <span className="flex items-center gap-2"><IndianRupee className="h-5 w-5" />Pay now — ₹{amount}</span>}
           </Button>
         </div>
       )}
 
-      {payment && file && !file.released && payment.status === "payment_received" && (
+      {/* ── Writer upload — hidden when complete ── */}
+      {isWriter && payment?.status !== "file_delivered" && (
         <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4">
-          <div className="flex items-center gap-3">
-            <FileText className="h-6 w-6 text-primary" />
-            <div>
-              <p className="font-semibold">File uploaded by writer</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Admin will review and release shortly.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isWriter && (
-        <div className="rounded-3xl bg-card border border-border shadow-card p-5 mb-4">
-          <h3 className="font-bold mb-3">Writer: Upload completed work</h3>
-          <div
-            className={`text-xs px-3 py-2 rounded-xl mb-3 font-medium flex items-center gap-2 ${
-              !payment
-                ? "bg-warning/10 text-warning"
-                : payment.status === "payment_received"
-                ? "bg-success/10 text-success"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            <Clock className="h-3.5 w-3.5" />
+          <h3 className="font-bold mb-3">Upload completed assignment</h3>
+          <div className={`text-xs px-3 py-2 rounded-xl mb-3 font-medium flex items-center gap-2 ${
+            !payment ? "bg-warning/10 text-warning" :
+            payment.status === "payment_received" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+          }`}>
+            <Clock className="h-3.5 w-3.5 shrink-0" />
             Payment: <strong className="ml-1">{payment?.status?.replace(/_/g, " ") ?? "not started"}</strong>
           </div>
-          <input
-            ref={fileRef}
-            type="file"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              uploadWriterFile(f);
-              e.target.value = "";
-            }}
-          />
-          <Button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            variant="outline"
-            className="w-full rounded-2xl"
-          >
-            {uploading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Uploading…
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                {file ? "Replace uploaded file" : "Upload completed assignment"}
-              </span>
-            )}
+          <input ref={fileRef} type="file" hidden
+            onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; uploadWriterFile(f); if (e.target) e.target.value = ""; }} />
+          <Button onClick={() => fileRef.current?.click()} disabled={uploading} variant="outline" className="w-full rounded-2xl">
+            {uploading
+              ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Uploading…</span>
+              : <span className="flex items-center gap-2"><Upload className="h-4 w-4" />{file ? "Replace uploaded file" : "Upload completed assignment"}</span>}
           </Button>
           {file && (
             <div className="mt-2 flex items-center gap-2 bg-muted/50 rounded-xl px-3 py-2 text-xs text-muted-foreground">
               {file.released ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Clock className="h-3.5 w-3.5" />}
               <span className="truncate">{file.file_name}</span>
-              <span className="ml-auto font-medium text-primary">{file.released ? "Released ✓" : "Pending"}</span>
-            </div>
-          )}
-          {payment?.status === "file_delivered" && (
-            <div className="mt-3 bg-success/10 text-success text-xs px-3 py-2.5 rounded-xl font-medium">
-              🎉 Complete! The owner will send ₹{payment.writer_payout} to your UPI.
+              <span className="ml-auto font-medium text-primary">{file.released ? "Released ✓" : "Pending admin review"}</span>
             </div>
           )}
         </div>
