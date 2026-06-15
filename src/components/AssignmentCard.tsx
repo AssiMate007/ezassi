@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Clock, IndianRupee, MessageSquare, Zap } from "lucide-react";
+import { Clock, IndianRupee, MessageSquare, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export interface AssignmentCardData {
@@ -13,31 +13,39 @@ export interface AssignmentCardData {
   student?: { display_name: string; avatar_url: string | null } | null;
 }
 
-const subjectConfig: Record<string, { bg: string; text: string; dot: string; emoji: string }> = {
-  Math:    { bg: "bg-blue-50 border-blue-100",   text: "text-blue-600",   dot: "bg-blue-500",   emoji: "📐" },
-  Science: { bg: "bg-emerald-50 border-emerald-100", text: "text-emerald-600", dot: "bg-emerald-500", emoji: "🔬" },
-  English: { bg: "bg-pink-50 border-pink-100",   text: "text-pink-600",   dot: "bg-pink-500",   emoji: "📝" },
-  History: { bg: "bg-amber-50 border-amber-100", text: "text-amber-600",  dot: "bg-amber-500",  emoji: "📜" },
-  Coding:  { bg: "bg-indigo-50 border-indigo-100", text: "text-indigo-600", dot: "bg-indigo-500", emoji: "💻" },
-  Art:     { bg: "bg-rose-50 border-rose-100",   text: "text-rose-600",   dot: "bg-rose-500",   emoji: "🎨" },
+// Clean, premium subject config with subtle neutral indicators instead of distracting colored backgrounds
+const subjectConfig: Record<string, { emoji: string }> = {
+  Math:    { emoji: "📐" },
+  Science: { emoji: "🔬" },
+  English: { emoji: "📝" },
+  History: { emoji: "📜" },
+  Coding:  { emoji: "💻" },
+  Art:     { emoji: "🎨" },
 };
 
-const DEFAULT = { bg: "bg-purple-50 border-purple-100", text: "text-purple-600", dot: "bg-purple-500", emoji: "📚" };
+const DEFAULT_CONFIG = { emoji: "📚" };
 
+// Humanized, elegant Monochromatic Initial Avatar (replaces the harsh random neon blobs)
 function Avatar({ name, size = 24 }: { name: string; size?: number }) {
-  const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-  const colors = ["bg-violet-500", "bg-fuchsia-500", "bg-pink-500", "bg-indigo-500", "bg-cyan-500"];
-  const color = colors[name.charCodeAt(0) % colors.length];
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
-    <div className={`${color} rounded-full flex items-center justify-center text-white font-bold shrink-0`}
-      style={{ width: size, height: size, fontSize: size * 0.38 }}>
+    <div 
+      className="flex shrink-0 items-center justify-center rounded-lg bg-zinc-100 font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+    >
       {initials}
     </div>
   );
 }
 
 export function AssignmentCard({ a }: { a: AssignmentCardData }) {
-  const cfg = subjectConfig[a.subject] ?? DEFAULT;
+  const cfg = subjectConfig[a.subject] ?? DEFAULT_CONFIG;
   const deadline = new Date(a.deadline);
   const isUrgent = deadline.getTime() - Date.now() < 24 * 60 * 60 * 1000;
   const bidCount = a.bid_count ?? 0;
@@ -46,58 +54,66 @@ export function AssignmentCard({ a }: { a: AssignmentCardData }) {
     <Link
       to="/assignment/$id"
       params={{ id: a.id }}
-      className="group block rounded-2xl bg-card border border-border shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
+      className="group block rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md dark:border-zinc-900 dark:bg-zinc-900/40 dark:hover:border-zinc-700"
     >
-      {/* Top accent bar */}
-      <div className={`h-1 w-full bg-gradient-primary transition-all duration-300 group-hover:h-1.5`} />
-
-      <div className="p-4">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.text}`}>
-              <span>{cfg.emoji}</span>
-              {a.subject}
+      <div className="flex flex-col gap-4">
+        {/* Meta / Badge Row */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-100 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+              <span className="text-sm leading-none">{cfg.emoji}</span>
+              <span>{a.subject}</span>
             </span>
+
             {isUrgent && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-500 border border-red-100">
-                <Zap className="h-2.5 w-2.5" />URGENT
+              <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold tracking-wide text-amber-700 border border-amber-100/50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-none">
+                <AlertCircle className="h-3.5 w-3.5" />
+                <span>URGENT</span>
               </span>
             )}
           </div>
+
+          {/* Clean, high-contrast Budget display */}
+          <div className="flex items-center text-zinc-900 dark:text-zinc-50">
+            <IndianRupee className="h-3.5 w-3.5 opacity-80" />
+            <span className="text-sm font-bold tracking-tight">
+              {a.budget_min === a.budget_max ? a.budget_min : `${a.budget_min}–${a.budget_max}`}
+            </span>
+          </div>
         </div>
 
-        {/* Title */}
-        <h3 className="font-semibold text-foreground line-clamp-2 leading-snug text-[15px] mb-3 group-hover:text-primary transition-colors">
-          {a.title}
-        </h3>
+        {/* Content Section */}
+        <div>
+          <h3 className="text-base font-semibold tracking-tight text-zinc-900 line-clamp-2 transition-colors group-hover:text-indigo-600 dark:text-zinc-100 dark:group-hover:text-indigo-400">
+            {a.title}
+          </h3>
+        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-0.5 font-bold text-foreground">
-              <IndianRupee className="h-3.5 w-3.5 text-primary" />
-              <span className="text-sm">{a.budget_min}–{a.budget_max}</span>
+        {/* Card Footer Structural Layout */}
+        <div className="flex items-center justify-between border-t border-zinc-50 pt-3.5 dark:border-zinc-800/50">
+          {/* User Profile Info */}
+          {a.student ? (
+            <div className="flex items-center gap-2">
+              <Avatar name={a.student.display_name} size={22} />
+              <span className="max-w-[90px] truncate text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                {a.student.display_name.split(" ")[0]}
+              </span>
             </div>
-          </div>
+          ) : (
+            <div className="text-xs text-zinc-400">Anonymous student</div>
+          )}
 
+          {/* Interactive Live Metrics */}
           <div className="flex items-center gap-3">
-            {a.student && (
-              <div className="flex items-center gap-1.5">
-                <Avatar name={a.student.display_name} size={20} />
-                <span className="text-[11px] text-muted-foreground truncate max-w-[80px]">
-                  {a.student.display_name.split(" ")[0]}
-                </span>
-              </div>
-            )}
-            <div className={`flex items-center gap-1 text-xs ${isUrgent ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
-              <Clock className="h-3 w-3" />
-              {formatDistanceToNow(deadline, { addSuffix: true })}
+            <div className={`flex items-center gap-1 text-xs ${isUrgent ? "font-medium text-amber-600 dark:text-amber-400" : "text-zinc-400 dark:text-zinc-500"}`}>
+              <Clock className="h-3.5 w-3.5" />
+              <span>{formatDistanceToNow(deadline, { addSuffix: true })}</span>
             </div>
-            {typeof bidCount === "number" && bidCount > 0 && (
-              <div className="flex items-center gap-1 text-xs text-primary font-medium bg-primary/8 px-2 py-0.5 rounded-full">
+
+            {bidCount > 0 && (
+              <div className="flex items-center gap-1 rounded-lg bg-zinc-50 border border-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300">
                 <MessageSquare className="h-3 w-3" />
-                {bidCount}
+                <span>{bidCount} {bidCount === 1 ? 'bid' : 'bids'}</span>
               </div>
             )}
           </div>
