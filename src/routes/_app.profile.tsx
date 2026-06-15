@@ -1,15 +1,13 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useIsAdmin } from "@/hooks/use-admin";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Star, LogOut, GraduationCap, PenLine, Wallet,
-  CheckCircle2, Eye, EyeOff, Shield, Sun, Moon,
+import { 
+  Star, LogOut, GraduationCap, PenLine, Wallet, 
+  CheckCircle2, Eye, EyeOff, Shield, Sun, Moon, ChevronRight
 } from "lucide-react";
 import { AssignmentCard } from "@/components/AssignmentCard";
 import { toast } from "sonner";
@@ -18,14 +16,11 @@ export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
 });
 
-function Avatar({ name, size = 80 }: { name: string; size?: number }) {
+function Avatar({ name }: { name: string }) {
   const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   return (
-    <div
-      className="rounded-full flex items-center justify-center font-bold text-white bg-gradient-primary ring-4 ring-white/30 shadow-glow"
-      style={{ width: size, height: size, fontSize: size * 0.34 }}
-    >
-      {initials}
+    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-900 text-base font-bold text-white dark:bg-zinc-50 dark:text-zinc-900">
+      {initials || "??"}
     </div>
   );
 }
@@ -35,30 +30,63 @@ function ProfilePage() {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
   const { theme, toggle: toggleTheme } = useTheme();
+  const queryClient = useQueryClient();
+
   const [upiId, setUpiId] = useState("");
   const [showUpi, setShowUpi] = useState(false);
-  const [savingUpi, setSavingUpi] = useState(false);
+
+  // 1. Fetch UPI safely via isolated user_payment_settings table join
+  const { data: paymentSettings, isLoading: loadingPayment } = useQuery({
+    queryKey: ["payment-settings", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_payment_settings")
+        .select("upi_id")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    }
+  });
 
   useEffect(() => {
-    if (profile?.upi_id !== undefined) setUpiId(profile.upi_id ?? "");
-  }, [profile]);
+    if (paymentSettings?.upi_id) {
+      setUpiId(paymentSettings.upi_id);
+    }
+  }, [paymentSettings]);
 
-  const saveUpi = async () => {
-    if (!user) return;
+  // 2. Hardened Payment Settings Mutator Mutation
+  const saveUpiMutation = useMutation({
+    mutationFn: async (trimmedUpi: string) => {
+      if (!user) return;
+      const { error } = await supabase
+        .from("user_payment_settings")
+        .upsert({ 
+          user_id: user.id, 
+          upi_id: trimmedUpi || null 
+        }, { onConflict: "user_id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Payment configurations securely locked ✓");
+      queryClient.invalidateQueries({ queryKey: ["payment-settings", user?.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message);
+    }
+  });
+
+  const handleSaveUpi = () => {
     const trimmed = upiId.trim();
-    if (trimmed && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed))
+    if (trimmed && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed)) {
       return toast.error("Enter a valid UPI ID e.g. name@okhdfcbank");
-    setSavingUpi(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ upi_id: trimmed || null } as never)
-      .eq("id", user.id);
-    setSavingUpi(false);
-    if (error) return toast.error(error.message);
-    toast.success("UPI ID saved ✓");
+    }
+    saveUpiMutation.mutate(trimmed);
   };
 
-  const { data: myAssignments } = useQuery({
+  // 3. User Assignments / Bids Query Setup
+  const { data: myAssignments, isLoading: loadingAssignments } = useQuery({
     queryKey: ["my-assignments", user?.id, profile?.role],
     enabled: !!profile,
     queryFn: async () => {
@@ -86,189 +114,214 @@ function ProfilePage() {
     navigate({ to: "/auth" });
   };
 
-  if (!profile) return (
-    <div className="p-8 space-y-3">
-      {[20, 10, 6, 6].map((h, i) => (
-        <div key={i} className={`h-${h} rounded-xl shimmer`} />
-      ))}
-    </div>
-  );
+  if (!profile) {
+    return (
+      <div className="mx-auto max-w-md p-6 space-y-4">
+        <div className="h-20 w-20 rounded-full bg-zinc-100 animate-pulse dark:bg-zinc-900" />
+        <div className="h-6 w-1/2 bg-zinc-100 animate-pulse rounded-md dark:bg-zinc-900" />
+        <div className="h-4 w-1/3 bg-zinc-100 animate-pulse rounded-md dark:bg-zinc-900" />
+      </div>
+    );
+  }
 
-  const maskedUpi = profile.upi_id
-    ? profile.upi_id.replace(/^(.{3}).*(@.*)$/, (_, a, b) => `${a}${"•".repeat(6)}${b}`)
+  const maskedUpi = paymentSettings?.upi_id
+    ? paymentSettings.upi_id.replace(/^(.{3}).*(@.*)$/, (_, a, b) => `${a}${"•".repeat(6)}${b}`)
     : null;
 
   return (
-    <div className="pb-4">
-      {/* Hero */}
-      <div className="bg-gradient-hero px-4 pt-12 pb-20 text-primary-foreground relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/5" />
-        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-white pb-32 dark:bg-zinc-950">
+      
+      {/* Account Profile Header Block */}
+      <div className="border-b border-zinc-100 bg-zinc-50/40 px-4 pt-10 pb-6 dark:border-zinc-900 dark:bg-zinc-900/10">
+        <div className="mx-auto max-w-md">
+          <div className="flex items-center gap-4">
+            <Avatar name={profile.display_name} />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 truncate">
+                {profile.display_name}
+              </h1>
+              
+              <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mt-0.5">
+                {profile.role === "student" ? <GraduationCap className="h-3.5 w-3.5" /> : <PenLine className="h-3.5 w-3.5" />}
+                <span className="capitalize">{profile.role}</span>
+              </div>
+            </div>
 
-        <div className="relative flex flex-col items-center text-center">
-          <Avatar name={profile.display_name} size={84} />
-          <h1 className="mt-4 text-2xl font-bold">{profile.display_name}</h1>
-          <div className="mt-1.5 flex items-center gap-1.5 text-sm text-primary-foreground/85">
-            {profile.role === "student"
-              ? <GraduationCap className="h-4 w-4" />
-              : <PenLine       className="h-4 w-4" />}
-            <span className="capitalize font-medium">{profile.role}</span>
+            {isAdmin && (
+              <Link 
+                to="/admin" 
+                className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-bold text-zinc-700 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+              >
+                <Shield className="h-3 w-3 text-zinc-400" />
+                <span>Admin</span>
+              </Link>
+            )}
           </div>
 
-          {isAdmin && (
-            <Link to="/admin" className="mt-2 flex items-center gap-1.5 text-xs bg-white/20 backdrop-blur-sm border border-white/30 px-3 py-1.5 rounded-full font-semibold">
-              <Shield className="h-3.5 w-3.5" /> Admin Panel
-            </Link>
-          )}
-
-          <div className="mt-5 flex gap-8">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-xl font-bold">
-                <Star className="h-4 w-4 fill-yellow-300 text-yellow-300" />
-                {Number(profile.rating).toFixed(1)}
-              </div>
-              <p className="text-xs text-primary-foreground/70 mt-0.5">Rating</p>
+          {/* Flat Minimalist Data Counter Row */}
+          <div className="mt-6 grid grid-cols-2 border-t border-zinc-100 pt-4 text-center dark:border-zinc-900">
+            <div>
+              <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                <Star className="inline h-3.5 w-3.5 fill-current mr-0.5 mb-0.5" />
+                {Number(profile.rating || 5.0).toFixed(1)}
+              </p>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mt-0.5 dark:text-zinc-500">Rating</p>
             </div>
-            <div className="w-px bg-white/25" />
-            <div className="text-center">
-              <div className="text-xl font-bold">{profile.jobs_completed}</div>
-              <p className="text-xs text-primary-foreground/70 mt-0.5">
-                {profile.role === "student" ? "Assignments" : "Jobs done"}
+            <div className="border-l border-zinc-100 dark:border-zinc-900">
+              <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                {profile.jobs_completed || 0}
+              </p>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mt-0.5 dark:text-zinc-500">
+                {profile.role === "student" ? "Assignments" : "Jobs completed"}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-4 -mt-10 relative z-10 space-y-4">
+      {/* Primary Context Container */}
+      <div className="mx-auto max-w-md px-4 mt-6 space-y-6">
+        
+        {/* Dynamic Bio Paragraph */}
+        {profile.bio && (
+          <div className="text-xs leading-relaxed text-zinc-500 border-l-2 border-zinc-100 pl-3 dark:text-zinc-400 dark:border-zinc-800">
+            {profile.bio}
+          </div>
+        )}
 
-        {/* Theme toggle card */}
-        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shadow-soft ${
-                theme === "dark" ? "bg-slate-800" : "bg-amber-50"
-              }`}>
-                {theme === "dark"
-                  ? <Moon className="h-5 w-5 text-blue-400" />
-                  : <Sun  className="h-5 w-5 text-amber-500" />}
-              </div>
-              <div>
-                <p className="font-semibold text-sm">
-                  {theme === "dark" ? "Dark mode" : "Light mode"}
-                </p>
-                <p className="text-xs text-muted-foreground">Tap to switch</p>
-              </div>
-            </div>
-            {/* Toggle switch */}
+        {/* Tactical UI Actions Menu Group */}
+        <div className="space-y-1">
+          <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider px-1">Preferences</p>
+          <div className="overflow-hidden rounded-2xl border border-zinc-100 bg-white dark:border-zinc-900/60 dark:bg-zinc-900/10">
             <button
+              type="button"
               onClick={toggleTheme}
-              className={`relative h-7 w-13 rounded-full transition-colors duration-300 focus:outline-none ${
-                theme === "dark" ? "bg-primary" : "bg-muted"
-              }`}
-              style={{ width: 52 }}
-              aria-label="Toggle theme"
+              className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/40"
             >
-              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-300 ${
-                theme === "dark" ? "translate-x-6" : "translate-x-1"
-              }`} />
+              <div className="flex items-center gap-3">
+                <div className="text-zinc-400 dark:text-zinc-500">
+                  {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Interface Display</p>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 capitalize">{theme} mode active</p>
+                </div>
+              </div>
+              <div className={`relative h-5 w-9 rounded-full transition-colors ${theme === "dark" ? "bg-zinc-900 dark:bg-zinc-50" : "bg-zinc-200"}`}>
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${theme === "dark" ? "translate-x-4 dark:bg-zinc-900" : "translate-x-0.5"}`} />
+              </div>
             </button>
           </div>
         </div>
 
-        {/* Bio */}
-        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
-          <p className="text-sm text-muted-foreground">
-            {profile.bio ?? (
-              <span className="italic">No bio yet — add one to attract more mates!</span>
-            )}
-          </p>
-        </div>
-
-        {/* UPI */}
-        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="h-8 w-8 rounded-xl bg-gradient-primary flex items-center justify-center shadow-soft">
-              <Wallet className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <h3 className="font-semibold text-sm flex-1">UPI for payouts</h3>
-            {profile.upi_id && <CheckCircle2 className="h-4 w-4 text-success" />}
+        {/* Hardened Payout Routing Configuration Section */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 px-1">
+            <Wallet className="h-3.5 w-3.5 text-zinc-400" />
+            <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider">Secure Financial Settings</p>
           </div>
-          <p className="text-xs text-muted-foreground mb-3">
-            {profile.role === "writer"
-              ? "Required to receive your 85% payout."
-              : "Optional — for refunds only."}
-          </p>
+          
+          <div className="rounded-2xl border border-zinc-100 bg-zinc-50/40 p-4 dark:border-zinc-900 dark:bg-zinc-900/10">
+            <p className="text-[11px] leading-normal text-zinc-400 dark:text-zinc-500 mb-3">
+              {profile.role === "writer"
+                ? "Required to complete automated escrow payouts. All configurations are stored via server-isolated tables."
+                : "Optional payout configuration. Restricted to validation returns and cancellation processing."}
+            </p>
 
-          {profile.upi_id && (
-            <div className="mb-3 flex items-center gap-2 bg-muted/60 rounded-xl px-3 py-2">
-              <span className="text-sm font-mono text-foreground flex-1">
-                {showUpi ? profile.upi_id : maskedUpi}
-              </span>
-              <button
-                onClick={() => setShowUpi(!showUpi)}
-                className="text-muted-foreground hover:text-foreground transition"
-                aria-label={showUpi ? "Hide UPI" : "Show UPI"}
+            {paymentSettings?.upi_id && (
+              <div className="mb-3 flex items-center justify-between rounded-xl bg-white border border-zinc-100 px-3 py-2 dark:bg-zinc-950 dark:border-zinc-900">
+                <span className="font-mono text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                  {showUpi ? paymentSettings.upi_id : maskedUpi}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowUpi(!showUpi)}
+                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                >
+                  {showUpi ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="identity@handle"
+                value={upiId}
+                onChange={(e) => setUpiId(e.target.value)}
+                maxLength={100}
+                autoCapitalize="none"
+                autoCorrect="off"
+                className="w-full rounded-xl border border-zinc-100 bg-white px-3 py-2 text-xs font-medium text-zinc-800 placeholder-zinc-300 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+              />
+              <button 
+                type="button"
+                onClick={handleSaveUpi} 
+                disabled={saveUpiMutation.isPending || loadingPayment}
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white transition-opacity disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900"
               >
-                {showUpi ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {saveUpiMutation.isPending ? "..." : "Save"}
               </button>
             </div>
-          )}
-
-          <div className="flex gap-2">
-            <Input
-              placeholder="yourname@okhdfcbank"
-              value={upiId}
-              onChange={(e) => setUpiId(e.target.value)}
-              maxLength={100}
-              autoCapitalize="none"
-              autoCorrect="off"
-              className="rounded-xl"
-            />
-            <Button onClick={saveUpi} disabled={savingUpi}
-              className="bg-gradient-primary rounded-xl shrink-0">
-              {savingUpi ? "…" : "Save"}
-            </Button>
           </div>
         </div>
 
-        {/* Assignments */}
-        <div>
-          <h2 className="font-bold text-base mb-3">
-            {profile.role === "student" ? "My assignments" : "My bids"}
+        {/* Dynamic Context Lists */}
+        <div className="space-y-3 pt-2">
+          <h2 className="text-xs font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-wider px-1">
+            {profile.role === "student" ? "My posted assignments" : "Active proposals & bids"}
           </h2>
+          
           <div className="space-y-3">
-            {!myAssignments?.length ? (
-              <div className="text-center py-10 bg-card rounded-3xl border border-border">
-                <div className="text-4xl mb-2">📭</div>
-                <p className="text-sm text-muted-foreground">Nothing here yet</p>
+            {loadingAssignments ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-zinc-300" />
               </div>
-            ) : myAssignments.map((a) => a && (
-              <AssignmentCard key={a.id} a={{
-                id: a.id, title: a.title, subject: a.subject,
-                budget_min: a.budget_min, budget_max: a.budget_max,
-                deadline: a.deadline,
-                bid_count: (a as any).bids?.[0]?.count,
-              }} />
+            ) : !myAssignments?.length ? (
+              <div className="flex flex-col items-center justify-center py-10 rounded-2xl border border-dashed border-zinc-100 text-center dark:border-zinc-900">
+                <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500">No history captured yet</p>
+              </div>
+            ) : (
+              myAssignments.map((a) => a && (
+                <AssignmentCard key={a.id} a={{
+                  id: a.id, 
+                  title: a.title, 
+                  subject: a.subject,
+                  budget_min: a.budget_min, 
+                  budget_max: a.budget_max,
+                  deadline: a.deadline,
+                  bid_count: (a as any).bids?.[0]?.count,
+                }} />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Utility Boundary Actions */}
+        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900 space-y-4">
+          <button
+            type="button"
+            onClick={signOut}
+            className="flex w-full items-center justify-between rounded-xl bg-zinc-50 p-3.5 text-left text-xs font-semibold text-red-500 transition-colors hover:bg-red-50/50 dark:bg-zinc-900/20 dark:text-red-400 dark:hover:bg-red-950/10"
+          >
+            <div className="flex items-center gap-2">
+              <LogOut className="h-4 w-4" />
+              <span>Log out active session</span>
+            </div>
+            <ChevronRight className="h-4 w-4 opacity-40" />
+          </button>
+
+          {/* Footer Metadata Navs */}
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[10px] font-medium text-zinc-400 dark:text-zinc-600">
+            {[["About","/about"],["Terms","/terms"],["Privacy","/privacy"],["Refunds","/refund"],["Contact","/contact"]].map(([title, href]) => (
+              <a key={href} href={href} className="hover:text-zinc-900 dark:hover:text-zinc-400 transition-colors">{title}</a>
             ))}
           </div>
+          <p className="text-center text-[10px] font-medium text-zinc-300 dark:text-zinc-700">
+            &copy; {new Date().getFullYear()} AssiMate Platform Architecture
+          </p>
         </div>
 
-        {/* Sign out */}
-        <Button variant="outline" onClick={signOut}
-          className="w-full rounded-2xl mt-2 text-muted-foreground">
-          <LogOut className="h-4 w-4 mr-2" />Sign out
-        </Button>
-
-        {/* Footer links */}
-        <div className="pt-4 border-t border-border flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-          {[["About","/about"],["Terms","/terms"],["Privacy","/privacy"],["Refunds","/refund"],["Contact","/contact"]].map(([l,h])=>(
-            <a key={h} href={h} className="hover:text-primary transition">{l}</a>
-          ))}
-        </div>
-        <p className="text-center text-[11px] text-muted-foreground">
-          © {new Date().getFullYear()} AssiMate
-        </p>
       </div>
     </div>
   );
