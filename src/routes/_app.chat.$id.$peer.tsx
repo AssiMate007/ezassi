@@ -151,10 +151,11 @@ function ChatPage() {
           <p className="font-semibold truncate leading-tight">{peerProfile?.display_name ?? "Chat"}</p>
           {assignment && <p className="text-xs text-muted-foreground truncate">{assignment.title}</p>}
         </div>
-        <Link to="/assignment/$id" params={{ id }}
+        {/* FIX: use plain anchor to avoid TanStack Router param conflict crash */}
+        <a href={`/assignment/${id}`}
           className="shrink-0 text-xs text-primary bg-primary/10 px-3 py-1.5 rounded-full font-medium hover:bg-primary/20 transition">
           View assignment
-        </Link>
+        </a>
       </header>
 
       {/* Messages */}

@@ -16,8 +16,8 @@ export function BottomNav() {
   const path    = useRouterState({ select: (s) => s.location.pathname });
   const isAdmin = useIsAdmin();
 
-  // Hide navigation entirely on sub-level chat threads for a focused conversation layout
-  if (path.startsWith("/chat/")) return null;
+  // Hide navigation on chat pages - check both path formats
+  if (path.includes("/chat/")) return null;
 
   const items  = isAdmin ? [...baseItems, adminItem] : baseItems;
   const cols   = items.length === 5 ? "grid-cols-5" : "grid-cols-4";
