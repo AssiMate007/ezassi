@@ -12,7 +12,7 @@ import {
   Wallet, TrendingUp, Eye, Users, Activity, Trophy, Sparkles,
   Search, Ban, RotateCcw, Bell, XCircle, RefreshCw, Zap,
   Download, Image as ImageIcon, ThumbsUp, ThumbsDown, Loader2,
-  AlertCircle, MessageSquare, X,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -493,58 +493,59 @@ function AdminPage() {
 
   /* ══════════════════════════════════════════════════════════════ */
   return (
-    <div className="pb-4">
+    <div className="min-h-screen bg-zinc-50/50 pb-12 dark:bg-zinc-950">
       {/* Modals */}
       {rejectPaymentTarget && <RejectPaymentModal payment={rejectPaymentTarget} onClose={()=>setRejectPaymentTarget(null)} onConfirm={handleRejectPayment} />}
       {rejectFileTarget    && <RejectFileModal    payment={rejectFileTarget}    onClose={()=>setRejectFileTarget(null)}    onConfirm={handleRejectFile} />}
       {previewUrl          && <ImagePreviewModal  url={previewUrl}              onClose={()=>setPreviewUrl(null)} />}
 
-      {/* Hero */}
-      <div className="bg-gradient-hero px-4 pt-10 pb-7 text-primary-foreground relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10"/>
-        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none"/>
-        <div className="relative flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center"><Sparkles className="h-4 w-4"/></div>
-              <span className="text-sm font-medium opacity-80">Admin HQ</span>
+      {/* Header — matches Feed page structure */}
+      <header className="border-b border-zinc-100 bg-white px-4 pt-10 pb-8 dark:border-zinc-900 dark:bg-zinc-900/20">
+        <div className="mx-auto max-w-3xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Admin HQ</p>
+              <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                <Sparkles className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
+                Dashboard
+              </h1>
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />Live · auto-refresh every 10s
+              </p>
             </div>
-            <h1 className="text-2xl font-bold">Dashboard</h1>
-            <p className="text-xs opacity-70 mt-0.5 flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-300 animate-pulse"/>Live · auto-refresh every 10s
-            </p>
+            <button onClick={refetchAll}
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white shadow-sm transition-all hover:bg-zinc-800 active:scale-[0.98] dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200">
+              <RefreshCw className="h-3.5 w-3.5"/>Refresh
+            </button>
           </div>
-          <button onClick={refetchAll} className="flex items-center gap-1.5 bg-white/15 border border-white/25 rounded-xl px-3 py-2 text-xs font-medium hover:bg-white/25 transition">
-            <RefreshCw className="h-3.5 w-3.5"/>Refresh
-          </button>
+          <div className="mt-5 flex gap-2 flex-wrap">
+            {[["Profit",`₹${stats.profit.toLocaleString()}`],[`Users`,stats.users],[`Open`,stats.openJobs]].map(([l,v])=>(
+              <div key={l} className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+                <div><p className="text-[10px] text-zinc-400 dark:text-zinc-500">{l}</p><p className="font-bold leading-none text-zinc-900 dark:text-zinc-50 text-sm">{v}</p></div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="mt-4 flex gap-2 flex-wrap">
-          {[["Profit",`₹${stats.profit.toLocaleString()}`],[`Users`,stats.users],[`Open`,stats.openJobs]].map(([l,v])=>(
-            <div key={l} className="inline-flex items-center gap-2 bg-white/15 rounded-2xl px-3 py-2">
-              <div><p className="text-[10px] opacity-75">{l}</p><p className="font-bold leading-none">{v}</p></div>
-            </div>
-          ))}
-        </div>
-      </div>
+      </header>
 
-      <div className="px-4 -mt-3 relative z-10">
+      <main className="mx-auto max-w-3xl px-4 pt-6">
         {actionableCount>0 && (
-          <div className="mb-3 flex items-center gap-2.5 bg-warning/15 border border-warning/30 rounded-2xl px-4 py-3 text-warning">
+          <div className="mb-4 flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-amber-700 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-400">
             <Zap className="h-4 w-4 shrink-0 animate-pulse"/>
             <p className="text-sm font-semibold">{actionableCount} item{actionableCount>1?"s":""} need your review now</p>
           </div>
         )}
 
         <Tabs defaultValue="review">
-          <TabsList className="grid grid-cols-5 w-full rounded-2xl bg-muted/60 p-1 mb-1">
-            <TabsTrigger value="overview"    className="rounded-xl text-[11px]">Overview</TabsTrigger>
-            <TabsTrigger value="review"      className="rounded-xl text-[11px] relative">
+          <TabsList className="grid grid-cols-5 w-full rounded-xl border border-zinc-200 bg-white p-1 mb-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <TabsTrigger value="overview"    className="rounded-lg text-[11px] data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">Overview</TabsTrigger>
+            <TabsTrigger value="review"      className="rounded-lg text-[11px] relative data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">
               Review
-              {actionableCount>0&&<span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-warning text-[8px] font-bold flex items-center justify-center text-warning-foreground">{actionableCount}</span>}
+              {actionableCount>0&&<span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-500 text-[8px] font-bold flex items-center justify-center text-white">{actionableCount}</span>}
             </TabsTrigger>
-            <TabsTrigger value="assignments" className="rounded-xl text-[11px]">Jobs</TabsTrigger>
-            <TabsTrigger value="users"       className="rounded-xl text-[11px]">Users</TabsTrigger>
-            <TabsTrigger value="tools"       className="rounded-xl text-[11px]">Tools</TabsTrigger>
+            <TabsTrigger value="assignments" className="rounded-lg text-[11px] data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">Jobs</TabsTrigger>
+            <TabsTrigger value="users"       className="rounded-lg text-[11px] data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">Users</TabsTrigger>
+            <TabsTrigger value="tools"       className="rounded-lg text-[11px] data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">Tools</TabsTrigger>
           </TabsList>
 
           {/* ══ OVERVIEW ══ */}
@@ -901,7 +902,7 @@ function AdminPage() {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+      </main>
     </div>
   );
 }

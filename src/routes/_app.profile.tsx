@@ -18,13 +18,13 @@ export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
 });
 
-function Avatar({ name, size = 80 }: { name: string; size?: number }) {
+function Avatar({ name, size = 64 }: { name: string; size?: number }) {
   const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const colors = ["bg-violet-500","bg-fuchsia-500","bg-pink-500","bg-indigo-500","bg-cyan-500"];
+  const color = colors[name.charCodeAt(0) % colors.length];
   return (
-    <div
-      className="rounded-full flex items-center justify-center font-bold text-white bg-gradient-primary ring-4 ring-white/30 shadow-glow"
-      style={{ width: size, height: size, fontSize: size * 0.34 }}
-    >
+    <div className={`${color} rounded-2xl flex items-center justify-center font-bold text-white shrink-0 shadow-sm`}
+      style={{ width: size, height: size, fontSize: size * 0.34 }}>
       {initials}
     </div>
   );
@@ -49,10 +49,7 @@ function ProfilePage() {
     if (trimmed && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed))
       return toast.error("Enter a valid UPI ID e.g. name@okhdfcbank");
     setSavingUpi(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ upi_id: trimmed || null } as never)
-      .eq("id", user.id);
+    const { error } = await supabase.from("profiles").update({ upi_id: trimmed || null } as never).eq("id", user.id);
     setSavingUpi(false);
     if (error) return toast.error(error.message);
     toast.success("UPI ID saved ✓");
@@ -64,18 +61,10 @@ function ProfilePage() {
     queryFn: async () => {
       if (!user || !profile) return [];
       if (profile.role === "student") {
-        const { data } = await supabase
-          .from("assignments")
-          .select("*, bids(count)")
-          .eq("student_id", user.id)
-          .order("created_at", { ascending: false });
+        const { data } = await supabase.from("assignments").select("*, bids(count)").eq("student_id", user.id).order("created_at", { ascending: false });
         return data ?? [];
       } else {
-        const { data } = await supabase
-          .from("bids")
-          .select("*, assignment:assignments(*)")
-          .eq("writer_id", user.id)
-          .order("created_at", { ascending: false });
+        const { data } = await supabase.from("bids").select("*, assignment:assignments(*)").eq("writer_id", user.id).order("created_at", { ascending: false });
         return (data ?? []).map((b) => b.assignment).filter(Boolean);
       }
     },
@@ -87,10 +76,10 @@ function ProfilePage() {
   };
 
   if (!profile) return (
-    <div className="p-8 space-y-3">
-      <div className="h-20 rounded-xl shimmer" />
-      <div className="h-10 rounded-xl shimmer" />
-      <div className="h-6 rounded-xl shimmer" />
+    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 p-4 space-y-3">
+      <div className="h-32 rounded-2xl bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
     </div>
   );
 
@@ -99,110 +88,104 @@ function ProfilePage() {
     : null;
 
   return (
-    <div className="pb-4">
-      {/* Hero */}
-      <div className="bg-gradient-hero px-4 pt-12 pb-20 text-primary-foreground relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/5" />
-        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
-        <div className="relative flex flex-col items-center text-center">
-          <Avatar name={profile.display_name} size={84} />
-          <h1 className="mt-4 text-2xl font-bold">{profile.display_name}</h1>
-          <div className="mt-1.5 flex items-center gap-1.5 text-sm text-primary-foreground/85">
-            {profile.role === "student"
-              ? <GraduationCap className="h-4 w-4" />
-              : <PenLine className="h-4 w-4" />}
-            <span className="capitalize font-medium">{profile.role}</span>
+    <div className="min-h-screen bg-zinc-50/50 pb-12 dark:bg-zinc-950">
+      {/* Header — matches Feed page structure */}
+      <header className="border-b border-zinc-100 bg-white px-4 pt-10 pb-8 dark:border-zinc-900 dark:bg-zinc-900/20">
+        <div className="mx-auto max-w-3xl">
+          <div className="flex items-center gap-4">
+            <Avatar name={profile.display_name} size={64} />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 truncate">
+                {profile.display_name}
+              </h1>
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                {profile.role === "student" ? <GraduationCap className="h-3.5 w-3.5" /> : <PenLine className="h-3.5 w-3.5" />}
+                <span className="capitalize">{profile.role}</span>
+                {isAdmin && (
+                  <>
+                    <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                    <Link to="/admin" className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-medium">
+                      <Shield className="h-3 w-3" />Admin
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-          {isAdmin && (
-            <Link to="/admin" className="mt-2 flex items-center gap-1.5 text-xs bg-white/20 backdrop-blur-sm border border-white/30 px-3 py-1.5 rounded-full font-semibold">
-              <Shield className="h-3.5 w-3.5" /> Admin Panel
-            </Link>
-          )}
-          <div className="mt-5 flex gap-8">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-xl font-bold">
-                <Star className="h-4 w-4 fill-yellow-300 text-yellow-300" />
+
+          <div className="mt-5 flex gap-6">
+            <div>
+              <div className="flex items-center gap-1 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
                 {Number(profile.rating).toFixed(1)}
               </div>
-              <p className="text-xs text-primary-foreground/70 mt-0.5">Rating</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Rating</p>
             </div>
-            <div className="w-px bg-white/25" />
-            <div className="text-center">
-              <div className="text-xl font-bold">{profile.jobs_completed}</div>
-              <p className="text-xs text-primary-foreground/70 mt-0.5">
+            <div className="w-px bg-zinc-200 dark:bg-zinc-800" />
+            <div>
+              <div className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{profile.jobs_completed}</div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                 {profile.role === "student" ? "Assignments" : "Jobs done"}
               </p>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="px-4 -mt-10 relative z-10 space-y-4">
-        {/* Dark mode toggle card */}
-        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
+      <main className="mx-auto max-w-3xl px-4 pt-6 space-y-4">
+        {/* Theme toggle */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shadow-soft ${theme === "dark" ? "bg-slate-800" : "bg-amber-50"}`}>
-                {theme === "dark"
-                  ? <Moon className="h-5 w-5 text-blue-400" />
-                  : <Sun className="h-5 w-5 text-amber-500" />}
+              <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${theme === "dark" ? "bg-zinc-800" : "bg-amber-50"}`}>
+                {theme === "dark" ? <Moon className="h-4 w-4 text-blue-400" /> : <Sun className="h-4 w-4 text-amber-500" />}
               </div>
               <div>
-                <p className="font-semibold text-sm">{theme === "dark" ? "Dark mode" : "Light mode"}</p>
-                <p className="text-xs text-muted-foreground">Tap to switch</p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{theme === "dark" ? "Dark mode" : "Light mode"}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Tap to switch</p>
               </div>
             </div>
-            <button
-              onClick={toggleTheme}
-              className={`relative h-7 rounded-full transition-colors duration-300 focus:outline-none ${theme === "dark" ? "bg-primary" : "bg-muted"}`}
-              style={{ width: 52 }}
-              aria-label="Toggle theme"
-            >
-              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-300 ${theme === "dark" ? "translate-x-6" : "translate-x-1"}`} />
+            <button onClick={toggleTheme}
+              className={`relative h-6 rounded-full transition-colors duration-300 ${theme === "dark" ? "bg-zinc-900 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-700"}`}
+              style={{ width: 44 }} aria-label="Toggle theme">
+              <span className={`absolute top-1 h-4 w-4 rounded-full bg-white dark:bg-zinc-900 shadow transition-transform duration-300 ${theme === "dark" ? "translate-x-5" : "translate-x-1"}`} />
             </button>
           </div>
         </div>
 
         {/* Bio */}
         {profile.bio && (
-          <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
-            <p className="text-sm text-muted-foreground">{profile.bio}</p>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">{profile.bio}</p>
           </div>
         )}
 
         {/* UPI */}
-        <div className="bg-card rounded-3xl p-4 shadow-card border border-border">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="h-8 w-8 rounded-xl bg-gradient-primary flex items-center justify-center shadow-soft">
-              <Wallet className="h-4 w-4 text-primary-foreground" />
+            <div className="h-8 w-8 rounded-xl bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
+              <Wallet className="h-4 w-4 text-white dark:text-zinc-900" />
             </div>
-            <h3 className="font-semibold text-sm flex-1">UPI for payouts</h3>
-            {profile.upi_id && <CheckCircle2 className="h-4 w-4 text-success" />}
+            <h3 className="font-semibold text-sm flex-1 text-zinc-900 dark:text-zinc-100">UPI for payouts</h3>
+            {profile.upi_id && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
           </div>
-          <p className="text-xs text-muted-foreground mb-3">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
             {profile.role === "writer" ? "Required to receive your 85% payout." : "Optional — for refunds only."}
           </p>
           {profile.upi_id && (
-            <div className="mb-3 flex items-center gap-2 bg-muted/60 rounded-xl px-3 py-2">
-              <span className="text-sm font-mono text-foreground flex-1">
-                {showUpi ? profile.upi_id : maskedUpi}
-              </span>
-              <button onClick={() => setShowUpi(!showUpi)} className="text-muted-foreground hover:text-foreground transition">
+            <div className="mb-3 flex items-center gap-2 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl px-3 py-2">
+              <span className="text-sm font-mono text-zinc-700 dark:text-zinc-300 flex-1">{showUpi ? profile.upi_id : maskedUpi}</span>
+              <button onClick={() => setShowUpi(!showUpi)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition">
                 {showUpi ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           )}
           <div className="flex gap-2">
-            <Input
-              placeholder="yourname@okhdfcbank"
-              value={upiId}
-              onChange={(e) => setUpiId(e.target.value)}
-              maxLength={100}
-              autoCapitalize="none"
-              autoCorrect="off"
-              className="rounded-xl"
-            />
-            <Button onClick={saveUpi} disabled={savingUpi} className="bg-gradient-primary rounded-xl shrink-0">
+            <Input placeholder="yourname@okhdfcbank" value={upiId} onChange={(e) => setUpiId(e.target.value)}
+              maxLength={100} autoCapitalize="none" autoCorrect="off"
+              className="rounded-xl border-zinc-200 dark:border-zinc-800" />
+            <Button onClick={saveUpi} disabled={savingUpi}
+              className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200 rounded-xl shrink-0">
               {savingUpi ? "…" : "Save"}
             </Button>
           </div>
@@ -210,14 +193,14 @@ function ProfilePage() {
 
         {/* Assignments */}
         <div>
-          <h2 className="font-bold text-base mb-3">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
             {profile.role === "student" ? "My assignments" : "My bids"}
           </h2>
           <div className="space-y-3">
             {!myAssignments?.length ? (
-              <div className="text-center py-10 bg-card rounded-3xl border border-border">
-                <div className="text-4xl mb-2">📭</div>
-                <p className="text-sm text-muted-foreground">Nothing here yet</p>
+              <div className="rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-12 text-center dark:border-zinc-800 dark:bg-zinc-900/20">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-50 text-xl dark:bg-zinc-900">📭</div>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-3">Nothing here yet</p>
               </div>
             ) : myAssignments.map((a) => a && (
               <AssignmentCard key={a.id} a={{
@@ -230,18 +213,19 @@ function ProfilePage() {
         </div>
 
         {/* Sign out */}
-        <Button variant="outline" onClick={signOut} className="w-full rounded-2xl mt-2 text-muted-foreground">
+        <Button variant="outline" onClick={signOut}
+          className="w-full rounded-xl mt-2 border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900">
           <LogOut className="h-4 w-4 mr-2" />Sign out
         </Button>
 
-        {/* Footer links */}
-        <div className="pt-4 border-t border-border flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-          {[["About","/about"],["Terms","/terms"],["Privacy","/privacy"],["Refunds","/refund"],["Contact","/contact"]].map(([l,h])=>(
-            <a key={h} href={h} className="hover:text-primary transition">{l}</a>
+        {/* Footer */}
+        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-zinc-400 dark:text-zinc-500">
+          {[["About","/about"],["Terms","/terms"],["Privacy","/privacy"],["Refunds","/refund"],["Contact","/contact"]].map(([l,h]) => (
+            <a key={h} href={h} className="hover:text-zinc-700 dark:hover:text-zinc-300 transition">{l}</a>
           ))}
         </div>
-        <p className="text-center text-[11px] text-muted-foreground">© {new Date().getFullYear()} AssiMate</p>
-      </div>
+        <p className="text-center text-[11px] text-zinc-400 dark:text-zinc-600">© {new Date().getFullYear()} AssiMate</p>
+      </main>
     </div>
   );
 }
