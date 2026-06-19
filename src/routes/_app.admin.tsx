@@ -657,9 +657,7 @@ function AdminPage() {
                 return (
                   <div key={p.id} className={`rounded-3xl bg-card border p-5 shadow-card ${
                     needsVerify  ? "border-warning/60 ring-2 ring-warning/20" :
-                    needsRelease ? "border-primary/50 ring-2 ring-primary/15" :
-                    done         ? "border-success/30" :
-                    cancelled    ? "border-border opacity-50" : "border-border"
+                    needsRelease ? "border-primary/50 ring-2 ring-primary/15" : "border-border"
                   }`}>
                     {needsVerify  && <Banner color="warning" icon={<ImageIcon className="h-4 w-4"/>}   text="Screenshot uploaded — review and approve or reject"/>}
                     {noScreenshot && <Banner color="muted"   icon={<Clock className="h-4 w-4"/>}        text="Waiting for student to upload payment screenshot"/>}
@@ -751,7 +749,7 @@ function AdminPage() {
                             {openingFile===f.storage_path ? <Loader2 className="h-4 w-4 animate-spin mr-1.5"/> : <Download className="h-4 w-4 mr-1.5"/>}
                             Download & review assignment
                           </Button>
-                          {needsRelease&&(
+                          {needsRelease ? (
                             <div className="grid grid-cols-2 gap-2">
                               <Button size="sm" className="rounded-xl h-10 bg-gradient-primary font-semibold"
                                 onClick={()=>approveFile(p)}>
@@ -762,8 +760,9 @@ function AdminPage() {
                                 <ThumbsDown className="h-4 w-4 mr-1.5"/>Reject file
                               </Button>
                             </div>
-                          )}
-                          {done&&<p className="text-xs text-success font-medium flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5"/>Released {p.released_at?new Date(p.released_at).toLocaleString():"—"}</p>}
+                          ) : f.released ? (
+                            <p className="text-xs text-success font-medium flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5"/>Released — moved to history</p>
+                          ) : null}
                         </>
                       ) : (
                         <p className="text-xs text-muted-foreground italic">
@@ -779,7 +778,7 @@ function AdminPage() {
                           <ExternalLink className="h-3.5 w-3.5 mr-1"/>View assignment page
                         </Button>
                       </Link>
-                      {!done&&!cancelled&&!needsVerify&&(
+                      {!needsVerify&&(
                         <Button size="sm" variant="ghost" className="rounded-xl h-8 text-xs text-destructive hover:bg-destructive/10"
                           onClick={()=>setRejectPaymentTarget(p)}>
                           <XCircle className="h-3.5 w-3.5 mr-1"/>Cancel
