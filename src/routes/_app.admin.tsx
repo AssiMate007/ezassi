@@ -187,6 +187,7 @@ function AdminPage() {
   const [previewUrl,          setPreviewUrl]          = useState<string | null>(null);
   const [openingFile,         setOpeningFile]         = useState<string | null>(null);
 
+  const [dismissedAssignments, setDismissedAssignments] = useState<Set<string>>(new Set());
   // Tools state
   const [userSearch,   setUserSearch]   = useState("");
   const [notifTarget,  setNotifTarget]  = useState("");
@@ -232,7 +233,7 @@ function AdminPage() {
     },
   });
 
-  const { data: allAssignments } = useQuery({
+  const { data: allAssignments, refetch: refetchAssignments } = useQuery({
     queryKey: ["admin-assignments"], enabled: isAdmin, staleTime: 0, refetchInterval: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase.from("assignments")
@@ -351,6 +352,7 @@ function AdminPage() {
     ]);
     toast.success("Payment approved — both parties notified ✓");
     qc.invalidateQueries({queryKey:["admin-payments"]});
+    await refetchPayments();
   };
 
   const handleRejectPayment = async (refundPct:number, _reason:string) => {
@@ -377,6 +379,7 @@ function AdminPage() {
     toast.success(`Payment rejected — student notified${refundPct>0?` (₹${refundAmount} refund)`:" (no refund)"}`);
     setRejectPaymentTarget(null);
     qc.invalidateQueries({queryKey:["admin-payments"]});
+    await refetchPayments();
   };
 
   const approveFile = async (p:PaymentRow) => {
@@ -393,6 +396,8 @@ function AdminPage() {
     toast.success("File released to student 🎉");
     qc.invalidateQueries({queryKey:["admin-payments"]});
     qc.invalidateQueries({queryKey:["admin-files"]});
+    await refetchPayments();
+    await refetchFiles();
   };
 
   const handleRejectFile = async (reason:string) => {
@@ -422,6 +427,8 @@ function AdminPage() {
     setRejectFileTarget(null);
     qc.invalidateQueries({queryKey:["admin-files"]});
     qc.invalidateQueries({queryKey:["admin-payments"]});
+    await refetchFiles();
+    await refetchPayments();
   };
 
   /* ── Assignment actions ───────────────────────────────────────── */
@@ -429,10 +436,12 @@ function AdminPage() {
     await supabase.from("notifications").insert({
       user_id: a.student_id,
       title: "Assignment approved ✓",
-      body: `Your assignment "${a.title}" has been reviewed and approved by admin.`,
+      body: `Your assignment "${a.title}" has been reviewed and is now live for writers to bid on!`,
       link: `/assignment/${a.id}`,
     });
-    toast.success("Student notified — assignment approved ✓");
+    // Dismiss from admin queue immediately (local state)
+    setDismissedAssignments(prev => new Set([...prev, a.id]));
+    toast.success("Assignment approved ✓ — removed from queue");
   };
 
   const removeAssignment = async (a:AssignmentRow) => {
@@ -445,7 +454,9 @@ function AdminPage() {
       link: "/feed",
     });
     toast.success("Assignment removed — student notified");
+    setDismissedAssignments(prev => new Set([...prev, a.id]));
     qc.invalidateQueries({queryKey:["admin-assignments"]});
+    refetchAssignments();
   };
 
   /* ── User actions ─────────────────────────────────────────────── */
@@ -797,7 +808,7 @@ function AdminPage() {
             <h2 className="font-bold text-base mb-3">All Assignments ({allAssignments?.length??0})</h2>
             <div className="space-y-3">
               {/* Only show active assignments — completed/cancelled are hidden */}
-              {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled").map(a=>(
+              {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled"&&!dismissedAssignments.has(a.id)).map(a=>(
                 <div key={a.id} className="rounded-2xl bg-card border border-border p-4 shadow-card">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
@@ -838,7 +849,7 @@ function AdminPage() {
                   </div>
                 </div>
               ))}
-              {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled").length===0&&(
+              {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled"&&!dismissedAssignments.has(a.id)).length===0&&(
                 <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
                   <div className="text-4xl mb-2">✅</div>
                   <p className="text-sm font-semibold text-success">All clear!</p>
