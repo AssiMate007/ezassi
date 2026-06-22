@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/use-admin";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -179,6 +180,7 @@ function ImagePreviewModal({ url, onClose }: { url: string; onClose: () => void 
 
 function AdminPage() {
   const isAdmin = useIsAdmin();
+  const { user } = useAuth();
   const qc = useQueryClient();
 
   // Modal states
@@ -205,7 +207,7 @@ function AdminPage() {
   };
 
   const { data: payments, isLoading: paymentsLoading, refetch: refetchPayments } = useQuery({
-    queryKey: ["admin-payments"], enabled: isAdmin, staleTime: 0, refetchInterval: 10_000,
+    queryKey: ["admin-payments"], enabled: !!user, staleTime: 0, refetchInterval: 10_000,
     queryFn: async () => {
       const { data, error } = await supabase.from("payments")
         .select("*, assignment:assignments(id,title,subject,description), student:profiles!payments_student_id_fkey(display_name,upi_id), writer:profiles!payments_writer_id_fkey(display_name,upi_id)")
@@ -216,7 +218,7 @@ function AdminPage() {
   });
 
   const { data: files, refetch: refetchFiles } = useQuery({
-    queryKey: ["admin-files"], enabled: isAdmin, staleTime: 0, refetchInterval: 10_000,
+    queryKey: ["admin-files"], enabled: !!user, staleTime: 0, refetchInterval: 10_000,
     queryFn: async () => {
       const { data, error } = await supabase.from("assignment_files")
         .select("id,assignment_id,bid_id,storage_path,file_name,file_size,released,created_at");
@@ -226,7 +228,7 @@ function AdminPage() {
   });
 
   const { data: profiles } = useQuery({
-    queryKey: ["admin-profiles"], enabled: isAdmin, staleTime: 0,
+    queryKey: ["admin-profiles"], enabled: !!user, staleTime: 0,
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
       return (data ?? []) as ProfileRow[];
@@ -234,7 +236,7 @@ function AdminPage() {
   });
 
   const { data: allAssignments, refetch: refetchAssignments } = useQuery({
-    queryKey: ["admin-assignments"], enabled: isAdmin, staleTime: 0, refetchInterval: 15_000,
+    queryKey: ["admin-assignments"], enabled: !!user, staleTime: 0, refetchInterval: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase.from("assignments")
         .select("id,student_id,title,description,subject,budget_min,budget_max,deadline,status,created_at, student:profiles!assignments_student_id_fkey(display_name), bids(count)")
@@ -245,7 +247,7 @@ function AdminPage() {
   });
 
   const { data: bids } = useQuery({
-    queryKey: ["admin-bids"], enabled: isAdmin, staleTime: 0,
+    queryKey: ["admin-bids"], enabled: !!user, staleTime: 0,
     queryFn: async () => (await supabase.from("bids").select("id,created_at,amount,status")).data ?? [],
   });
 
