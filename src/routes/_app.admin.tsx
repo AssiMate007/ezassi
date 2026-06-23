@@ -209,11 +209,29 @@ function AdminPage() {
   const { data: payments, isLoading: paymentsLoading, error: paymentsError, refetch: refetchPayments } = useQuery({
     queryKey: ["admin-payments"], enabled: !!user, staleTime: 0, refetchInterval: 10_000,
     queryFn: async () => {
+      // payments.student_id / writer_id have no FK to profiles so we join manually
       const { data, error } = await supabase.from("payments")
-        .select("*, assignment:assignments(id,title,subject,description), student:profiles!payments_student_id_fkey(display_name,upi_id), writer:profiles!payments_writer_id_fkey(display_name,upi_id)")
+        .select("*, assignment:assignments(id,title,subject,description)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as PaymentRow[];
+      if (!data?.length) return [];
+
+      // Fetch all involved profiles in one query
+      const uids = [...new Set([
+        ...data.map((p: any) => p.student_id),
+        ...data.map((p: any) => p.writer_id),
+      ])];
+      const { data: profileRows } = await supabase
+        .from("profiles")
+        .select("id, display_name, upi_id")
+        .in("id", uids);
+      const pmap = new Map((profileRows ?? []).map((p: any) => [p.id, p]));
+
+      return data.map((p: any) => ({
+        ...p,
+        student: pmap.get(p.student_id) ?? null,
+        writer:  pmap.get(p.writer_id)  ?? null,
+      })) as unknown as PaymentRow[];
     },
   });
 
