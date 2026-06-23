@@ -206,7 +206,7 @@ function AdminPage() {
     toast.success("Refreshed ✓");
   };
 
-  const { data: payments, isLoading: paymentsLoading, refetch: refetchPayments } = useQuery({
+  const { data: payments, isLoading: paymentsLoading, error: paymentsError, refetch: refetchPayments } = useQuery({
     queryKey: ["admin-payments"], enabled: !!user, staleTime: 0, refetchInterval: 10_000,
     queryFn: async () => {
       const { data, error } = await supabase.from("payments")
@@ -671,11 +671,40 @@ function AdminPage() {
           <TabsContent value="review" className="mt-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-base">Review Payments & Files</h2>
-              {paymentsLoading&&<RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground"/>}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{payments?.length ?? 0} total</span>
+                {paymentsLoading&&<RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground"/>}
+              </div>
             </div>
-            {payments?.filter(p=>p.status!=="file_delivered"&&p.status!=="cancelled").length===0&&!paymentsLoading&&(
+
+            {/* Show error if payments query failed (usually RLS blocking admin) */}
+            {paymentsError && (
+              <div className="mb-4 rounded-2xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-destructive text-sm">
+                <p className="font-semibold mb-1">⚠️ Could not load payments</p>
+                <p className="text-xs opacity-80">{(paymentsError as Error).message}</p>
+                <p className="text-xs mt-2 opacity-60">Run the SQL fix in Supabase to grant admin read access to payments.</p>
+              </div>
+            )}
+
+            {/* Loading skeleton */}
+            {paymentsLoading && (
+              <div className="space-y-3">
+                {[1,2].map(i => (
+                  <div key={i} className="rounded-2xl bg-card border border-border p-5 space-y-3">
+                    <div className="h-4 w-2/3 rounded-lg bg-muted animate-pulse"/>
+                    <div className="h-3 w-1/3 rounded-lg bg-muted animate-pulse"/>
+                    <div className="h-20 rounded-xl bg-muted animate-pulse"/>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* All clear — only show when not loading and no error */}
+            {!paymentsLoading && !paymentsError && payments?.filter(p=>p.status!=="file_delivered"&&p.status!=="cancelled").length===0&&(
               <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
-                <div className="text-4xl mb-2">✅</div><p className="text-sm font-semibold text-success">All clear!</p><p className="text-xs text-muted-foreground mt-1">No pending items to review</p>
+                <div className="text-4xl mb-2">✅</div>
+                <p className="text-sm font-semibold text-success">All clear!</p>
+                <p className="text-xs text-muted-foreground mt-1">No pending items to review</p>
               </div>
             )}
             <div className="space-y-4">
