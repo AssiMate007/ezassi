@@ -333,26 +333,40 @@ function AdminPage() {
     setOpeningFile(path);
     const url = await getSignedUrl(path);
     setOpeningFile(null);
-    if (url) setPreviewUrl(url);
+    if (!url) return;
+    // Always show in lightbox so admin can review inline
+    setPreviewUrl(url);
   };
 
   const downloadFile = async (path:string) => {
     setOpeningFile(path);
     const url = await getSignedUrl(path);
     setOpeningFile(null);
-    if (url) window.open(url,"_blank");
+    if (!url) return;
+    // Open in new tab so admin can review the assignment
+    window.open(url, "_blank");
   };
 
   /* ── Payment actions ──────────────────────────────────────────── */
   const approvePayment = async (p:PaymentRow) => {
     const {error} = await supabase.from("payments")
-      .update({status:"payment_received",payment_received_at:new Date().toISOString()}).eq("id",p.id);
-    if (error) return toast.error(error.message);
-    await supabase.from("notifications").insert([
-      {user_id:p.student_id, title:"Payment confirmed ✓", body:`Your ₹${p.amount} payment has been verified!`, link:`/payment/${p.assignment_id}`},
-      {user_id:p.writer_id,  title:"New paid job 🎉",     body:`Student's ₹${p.amount} payment confirmed. Please upload your work.`, link:`/assignment/${p.assignment_id}`},
-    ]);
-    toast.success("Payment approved — both parties notified ✓");
+      .update({status:"payment_received", payment_received_at:new Date().toISOString()}).eq("id",p.id);
+    if (error) return toast.error("Could not update payment: " + error.message);
+    // Notify STUDENT: payment verified
+    await supabase.from("notifications").insert({
+      user_id: p.student_id,
+      title: "✅ Payment verified!",
+      body: `Your ₹${p.amount} payment for "${p.assignment?.title}" has been confirmed. The writer will now upload your assignment.`,
+      link: `/payment/${p.assignment_id}`,
+    });
+    // Notify WRITER: payment received, start working
+    await supabase.from("notifications").insert({
+      user_id: p.writer_id,
+      title: "🎉 Payment received — start working!",
+      body: `₹${p.amount} payment confirmed for "${p.assignment?.title}". Please upload the completed assignment now.`,
+      link: `/assignment/${p.assignment_id}`,
+    });
+    toast.success("✅ Payment approved — student & writer notified!");
     qc.invalidateQueries({queryKey:["admin-payments"]});
     await refetchPayments();
   };
@@ -386,16 +400,31 @@ function AdminPage() {
 
   const approveFile = async (p:PaymentRow) => {
     const f = fileForPayment(p);
-    if (!f) return toast.error("No file uploaded yet");
+    if (!f) return toast.error("No file uploaded yet — writer hasn't uploaded");
+    // Step 1: Release file so student can download
     const {error:fErr} = await supabase.from("assignment_files").update({released:true}).eq("id",f.id);
-    if (fErr) return toast.error(fErr.message);
-    await supabase.from("payments").update({status:"file_delivered",released_at:new Date().toISOString()}).eq("id",p.id);
+    if (fErr) return toast.error("Could not release file: " + fErr.message);
+    // Step 2: Mark payment complete
+    const {error:pErr} = await supabase.from("payments")
+      .update({status:"file_delivered", released_at:new Date().toISOString()}).eq("id",p.id);
+    if (pErr) return toast.error("Could not update payment: " + pErr.message);
+    // Step 3: Mark assignment completed
     await supabase.from("assignments").update({status:"completed"}).eq("id",p.assignment_id);
-    await supabase.from("notifications").insert([
-      {user_id:p.student_id, title:"Assignment ready 📄", body:"Your completed assignment is ready to download!", link:`/payment/${p.assignment_id}`},
-      {user_id:p.writer_id,  title:"Job complete! 💸",    body:`File approved. Please send ₹${p.writer_payout} payout will be sent to your UPI: ${p.writer?.upi_id??"(no UPI set)"}`, link:`/admin`},
-    ]);
-    toast.success("File released to student 🎉");
+    // Step 4: Notify STUDENT — they can now download
+    await supabase.from("notifications").insert({
+      user_id: p.student_id,
+      title: "✅ Your assignment is ready!",
+      body: `The file for "${p.assignment?.title}" has been verified and released. Tap to download now.`,
+      link: `/payment/${p.assignment_id}`,
+    });
+    // Step 5: Notify WRITER — job complete, they get paid
+    await supabase.from("notifications").insert({
+      user_id: p.writer_id,
+      title: "💸 Job complete — you get paid!",
+      body: `File approved for "${p.assignment?.title}". You will receive ₹${p.writer_payout} on your UPI${p.writer?.upi_id ? `: ${p.writer.upi_id}` : " (set your UPI in Profile to receive payment)"}.`,
+      link: `/assignment/${p.assignment_id}`,
+    });
+    toast.success("✅ File released to student — both parties notified!");
     qc.invalidateQueries({queryKey:["admin-payments"]});
     qc.invalidateQueries({queryKey:["admin-files"]});
     await refetchPayments();
@@ -409,22 +438,22 @@ function AdminPage() {
     if (f) await supabase.from("assignment_files").delete().eq("id",f.id);
     // Reset payment back to payment_received so writer can re-upload
     await supabase.from("payments").update({status:"payment_received"}).eq("id",p.id);
-    await supabase.from("notifications").insert([
-      {
-        user_id: p.writer_id,
-        title: "File rejected — please re-upload ❌",
-        body: reason
-          ? `Admin rejected your file: "${reason}". Please re-upload a corrected version.`
-          : "Admin rejected your uploaded file. Please re-upload a corrected version.",
-        link: `/assignment/${p.assignment_id}`,
-      },
-      {
-        user_id: p.student_id,
-        title: "Assignment being revised",
-        body: "The writer has been asked to revise and re-upload. You'll be notified when it's ready.",
-        link: `/payment/${p.assignment_id}`,
-      },
-    ]);
+    // Notify WRITER to re-upload
+    await supabase.from("notifications").insert({
+      user_id: p.writer_id,
+      title: "❌ File rejected — please re-upload",
+      body: reason
+        ? `Admin rejected your file for "${p.assignment?.title}": "${reason}". Please go to the assignment page and upload a corrected version.`
+        : `Admin rejected your file for "${p.assignment?.title}". Please upload a corrected version.`,
+      link: `/assignment/${p.assignment_id}`,
+    });
+    // Notify STUDENT to wait
+    await supabase.from("notifications").insert({
+      user_id: p.student_id,
+      title: "⏳ Assignment being revised",
+      body: `The writer has been asked to revise their submission for "${p.assignment?.title}". You'll be notified as soon as the new version is ready.`,
+      link: `/payment/${p.assignment_id}`,
+    });
     toast.success("File rejected — writer notified to re-upload");
     setRejectFileTarget(null);
     qc.invalidateQueries({queryKey:["admin-files"]});
