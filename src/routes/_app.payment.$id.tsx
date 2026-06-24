@@ -42,13 +42,20 @@ function PaymentPage() {
     queryKey: ["accepted-bid", id],
     enabled: !!assignment?.accepted_bid_id,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: bid, error } = await supabase
         .from("bids")
-        .select("*, writer:profiles!bids_writer_id_fkey(display_name)")
+        .select("*")
         .eq("id", assignment!.accepted_bid_id!)
         .single();
       if (error) throw error;
-      return data;
+      if (!bid) return null;
+      // Fetch writer profile separately (no named FK)
+      const { data: writerProfile } = await supabase
+        .from("profiles")
+        .select("display_name, upi_id")
+        .eq("id", bid.writer_id)
+        .single();
+      return { ...bid, writer: writerProfile ?? null };
     },
   });
 
@@ -317,7 +324,25 @@ function PaymentPage() {
       </button>
 
       <h1 className="text-2xl font-bold mb-1">Payment</h1>
-      <p className="text-sm text-muted-foreground line-clamp-1 mb-5">{assignment.title}</p>
+      <p className="text-sm text-muted-foreground line-clamp-1 mb-2">{assignment.title}</p>
+
+      {/* Current status pill — always visible so user knows where they are */}
+      <div className="mb-4 flex items-center gap-2">
+        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${
+          !payment                                    ? "bg-muted/60 text-muted-foreground border-border" :
+          payment.status === "awaiting_payment"       ? "bg-warning/10 text-warning border-warning/30" :
+          payment.status === "payment_received"       ? "bg-primary/10 text-primary border-primary/30" :
+          payment.status === "file_delivered"         ? "bg-success/10 text-success border-success/30" :
+          "bg-muted/60 text-muted-foreground border-border"
+        }`}>
+          {!payment && "💳 Not started"}
+          {payment?.status === "awaiting_payment" && !payment.screenshot_url && "⏳ Awaiting payment"}
+          {payment?.status === "awaiting_payment" &&  payment.screenshot_url && "🔍 Screenshot uploaded — admin verifying"}
+          {payment?.status === "payment_received" && !file && "✅ Payment confirmed — writer uploading"}
+          {payment?.status === "payment_received" &&  file && !file.released && "📁 File uploaded — admin reviewing"}
+          {payment?.status === "file_delivered" && "🎉 Complete — ready to download"}
+        </span>
+      </div>
 
       <div className="rounded-3xl bg-gradient-primary p-5 text-primary-foreground shadow-glow mb-5 relative overflow-hidden">
         <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl pointer-events-none" />
@@ -375,9 +400,9 @@ function PaymentPage() {
           <div className="text-4xl mb-2">💸</div>
           <p className="font-bold text-lg">Job complete!</p>
           <p className="text-sm opacity-80 mt-1 mb-4">Your payout: ₹{writerPayout}</p>
-          {payment.writer_upi_id
-            ? <p className="text-sm bg-white/15 rounded-xl px-4 py-2.5 font-mono">{payment.writer_upi_id}</p>
-            : <p className="text-sm bg-white/15 rounded-xl px-4 py-2.5 opacity-75">Go to Profile → add your UPI to receive payout</p>}
+          {acceptedBid.writer?.upi_id
+            ? <p className="text-sm bg-white/15 rounded-xl px-4 py-2.5 font-mono">{acceptedBid.writer.upi_id}</p>
+            : <p className="text-sm bg-white/15 rounded-xl px-4 py-2.5 opacity-75">Set your UPI in Profile to receive payout</p>}
         </div>
       )}
 

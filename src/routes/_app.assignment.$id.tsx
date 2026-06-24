@@ -61,7 +61,7 @@ function AssignmentPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bids")
-        .select("*, writer:profiles!bids_writer_id_fkey(display_name, avatar_url, rating, jobs_completed)")
+        .select("*, writer:profiles!writer_id(display_name, avatar_url, rating, jobs_completed)")
         .eq("assignment_id", id)
         .order("amount", { ascending: true });
       if (error) throw error;
