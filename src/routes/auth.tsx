@@ -134,7 +134,7 @@ function AuthPage() {
             </form>
           </Tabs>
 
-          <p className="mt-5 text-center text-xs text-zinc-400 dark:text-zinc-500">
+          <p className="mt-5 text-center text-[11px] text-zinc-400 dark:text-zinc-500">
             By continuing you agree to our{" "}
             <Link to="/terms" className="underline hover:text-zinc-700 dark:hover:text-zinc-300">Terms</Link>{" & "}
             <Link to="/privacy" className="underline hover:text-zinc-700 dark:hover:text-zinc-300">Privacy Policy</Link>.

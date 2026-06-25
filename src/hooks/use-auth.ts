@@ -71,5 +71,14 @@ const getServerSnapshot = () => state;
 
 export function useAuth() {
   useEffect(init, []);
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const authState = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return {
+    ...authState,
+    refetchProfile: () => {
+      if (authState.user?.id) {
+        lastProfileFetchFor = null;
+        fetchProfile(authState.user.id);
+      }
+    }
+  };
 }

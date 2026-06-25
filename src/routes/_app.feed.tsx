@@ -187,7 +187,7 @@ function FeedPage() {
                 budget_max: a.budget_max,
                 deadline: a.deadline,
                 bid_count: a.bids?.[0]?.count ?? 0,
-                student: a.student as { display_name: string; avatar_url: string | null } | null,
+                student: a.student ? { id: a.student_id, display_name: (a.student as any).display_name, avatar_url: (a.student as any).avatar_url } : null,
               }}
             />
           ))}

@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { UserProfileModal } from "@/components/UserProfileModal";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -188,6 +189,8 @@ function AdminPage() {
   const [rejectFileTarget,    setRejectFileTarget]    = useState<PaymentRow | null>(null);
   const [previewUrl,          setPreviewUrl]          = useState<string | null>(null);
   const [openingFile,         setOpeningFile]         = useState<string | null>(null);
+  const [selectedProfileId,   setSelectedProfileId]   = useState<string | null>(null);
+  const [showProfileModal,    setShowProfileModal]    = useState(false);
 
   const [dismissedAssignments, setDismissedAssignments] = useState<Set<string>>(new Set());
   // Tools state
@@ -428,6 +431,18 @@ function AdminPage() {
     if (pErr) return toast.error("Could not update payment: " + pErr.message);
     // Step 3: Mark assignment completed
     await supabase.from("assignments").update({status:"completed"}).eq("id",p.assignment_id);
+    // Step 3b: Increment jobs completed counts for writer and student
+    try {
+      const { data: writerProfile } = await supabase.from("profiles").select("jobs_completed").eq("id", p.writer_id).single();
+      const nextWriterJobs = (writerProfile?.jobs_completed ?? 0) + 1;
+      await supabase.from("profiles").update({ jobs_completed: nextWriterJobs }).eq("id", p.writer_id);
+
+      const { data: studentProfile } = await supabase.from("profiles").select("jobs_completed").eq("id", p.student_id).single();
+      const nextStudentJobs = (studentProfile?.jobs_completed ?? 0) + 1;
+      await supabase.from("profiles").update({ jobs_completed: nextStudentJobs }).eq("id", p.student_id);
+    } catch (countErr) {
+      console.error("Failed to increment jobs completed:", countErr);
+    }
     // Step 4: Notify STUDENT — they can now download
     await supabase.from("notifications").insert({
       user_id: p.student_id,
@@ -881,44 +896,43 @@ function AdminPage() {
             </div>
           </TabsContent>
 
-          {/* ══ ASSIGNMENTS ══ */}
+          {/* ══ USERS ══ */}
+          {/* ══ ASSIGNMENTS (Jobs) ══ */}
           <TabsContent value="assignments" className="mt-4">
-            <h2 className="font-bold text-base mb-3">All Assignments ({allAssignments?.length??0})</h2>
+            <h2 className="font-bold text-base mb-3">All Assignments ({allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled"&&!dismissedAssignments.has(a.id)).length??0})</h2>
             <div className="space-y-3">
-              {/* Only show active assignments — completed/cancelled are hidden */}
               {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled"&&!dismissedAssignments.has(a.id)).map(a=>(
-                <div key={a.id} className="rounded-2xl bg-card border border-border p-4 shadow-card">
+                <div key={a.id} className="rounded-2xl bg-white border border-zinc-200 dark:border-zinc-800 dark:bg-zinc-900 p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{a.title}</p>
-                      <p className="text-xs text-muted-foreground">{a.subject} · by {a.student?.display_name}</p>
+                      <p className="font-semibold text-sm truncate text-zinc-900 dark:text-zinc-100">{a.title}</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">{a.subject} · by {a.student?.display_name}</p>
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap border ${
-                      a.status==="open"?"bg-success/10 text-success border-success/30":
-                      a.status==="in_progress"?"bg-primary/10 text-primary border-primary/30":
-                      a.status==="completed"?"bg-muted text-muted-foreground border-border":
-                      "bg-destructive/10 text-destructive border-destructive/30"
+                      a.status==="open"?"bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/40":
+                      a.status==="in_progress"?"bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/40":
+                      "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
                     }`}>{a.status.replace("_"," ")}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3 leading-relaxed">{a.description}</p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mb-3 leading-relaxed">{a.description}</p>
+                  <div className="flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500 mb-3">
                     <span>₹{a.budget_min}–{a.budget_max}</span>
                     <span>Due {new Date(a.deadline).toLocaleDateString()}</span>
                     <span>{(a.bids as any)?.[0]?.count??0} bids</span>
                   </div>
                   <div className="flex gap-2">
                     <Link to="/assignment/$id" params={{id:a.id}} className="flex-1">
-                      <Button size="sm" variant="outline" className="w-full rounded-xl h-8 text-xs">
+                      <Button size="sm" variant="outline" className="w-full rounded-xl h-8 text-xs border-zinc-200 dark:border-zinc-800">
                         <Eye className="h-3.5 w-3.5 mr-1"/>View & manage
                       </Button>
                     </Link>
                     {a.status!=="cancelled"&&a.status!=="completed"&&(
                       <>
-                        <Button size="sm" variant="outline" className="rounded-xl h-8 text-xs text-success border-success/40 hover:bg-success/10"
+                        <Button size="sm" variant="outline" className="rounded-xl h-8 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900/40 dark:text-emerald-400"
                           onClick={()=>approveAssignment(a)}>
                           <ThumbsUp className="h-3.5 w-3.5"/>
                         </Button>
-                        <Button size="sm" variant="ghost" className="rounded-xl h-8 text-xs text-destructive hover:bg-destructive/10"
+                        <Button size="sm" variant="ghost" className="rounded-xl h-8 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
                           onClick={()=>removeAssignment(a)}>
                           <XCircle className="h-3.5 w-3.5"/>
                         </Button>
@@ -928,16 +942,15 @@ function AdminPage() {
                 </div>
               ))}
               {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled"&&!dismissedAssignments.has(a.id)).length===0&&(
-                <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
+                <div className="text-center py-12 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/20">
                   <div className="text-4xl mb-2">✅</div>
-                  <p className="text-sm font-semibold text-success">All clear!</p>
-                  <p className="text-xs text-muted-foreground mt-1">No active assignments</p>
+                  <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">All clear!</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">No active assignments</p>
                 </div>
               )}
             </div>
           </TabsContent>
 
-          {/* ══ USERS ══ */}
           <TabsContent value="users" className="mt-4">
             <div className="relative mb-3">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
@@ -947,16 +960,22 @@ function AdminPage() {
             <div className="space-y-2">
               {filteredProfiles.map(u=>(
                 <div key={u.id} className={`rounded-2xl bg-card border p-3.5 flex items-center justify-between shadow-card ${u.is_banned?"border-destructive/30 bg-destructive/5":"border-border"}`}>
-                  <div className="flex-1 min-w-0">
+                  <button type="button" onClick={() => { setSelectedProfileId(u.id); setShowProfileModal(true); }}
+                    className="flex-1 text-left min-w-0 focus:outline-none hover:opacity-80 transition">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm truncate">{u.display_name}</p>
+                      <p className="font-semibold text-sm truncate hover:text-primary transition">{u.display_name}</p>
                       {u.is_banned&&<span className="text-[10px] bg-destructive/15 text-destructive px-1.5 py-0.5 rounded-full font-bold">Banned</span>}
                     </div>
                     <p className="text-[11px] text-muted-foreground capitalize">{u.role} · ★{Number(u.rating).toFixed(1)} · {u.jobs_completed} jobs</p>
                     {u.upi_id&&<p className="text-[10px] font-mono text-primary mt-0.5">{u.upi_id}</p>}
-                  </div>
+                  </button>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
                     <span className="text-[10px] text-muted-foreground">{new Date(u.created_at).toLocaleDateString()}</span>
+                    <Button size="sm" variant="ghost" title="View profile"
+                      onClick={() => { setSelectedProfileId(u.id); setShowProfileModal(true); }}
+                      className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-foreground">
+                      <Eye className="h-3.5 w-3.5"/>
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={()=>toggleBan(u)}
                       className={`h-8 w-8 p-0 rounded-xl ${u.is_banned?"text-success hover:bg-success/10":"text-destructive hover:bg-destructive/10"}`}>
                       {u.is_banned?<RotateCcw className="h-3.5 w-3.5"/>:<Ban className="h-3.5 w-3.5"/>}
@@ -992,6 +1011,13 @@ function AdminPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        userId={selectedProfileId}
+      />
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Star, LogOut, GraduationCap, PenLine, Wallet,
-  CheckCircle2, Eye, EyeOff, Shield, Moon, Sun,
+  CheckCircle2, Eye, EyeOff, Shield, Moon, Sun, Clock,
 } from "lucide-react";
 import { AssignmentCard } from "@/components/AssignmentCard";
 import { toast } from "sonner";
@@ -31,17 +31,42 @@ function Avatar({ name, size = 64 }: { name: string; size?: number }) {
 }
 
 function ProfilePage() {
-  const { user, profile } = useAuth();
+  const { user, profile, refetchProfile } = useAuth();
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
   const { theme, toggle: toggleTheme } = useTheme();
+  
+  // UPI Edit States
   const [upiId, setUpiId] = useState("");
   const [showUpi, setShowUpi] = useState(false);
   const [savingUpi, setSavingUpi] = useState(false);
+  const [isEditingUpi, setIsEditingUpi] = useState(false);
+
+  // Username Edit States
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<"assignments" | "payments">("assignments");
 
   useEffect(() => {
     if (profile?.upi_id !== undefined) setUpiId(profile.upi_id ?? "");
   }, [profile]);
+
+  const saveName = async () => {
+    if (!user) return;
+    const trimmed = tempName.trim();
+    if (!trimmed) return toast.error("Username cannot be empty");
+    if (trimmed.length < 3) return toast.error("Username must be at least 3 characters");
+    setSavingName(true);
+    const { error } = await supabase.from("profiles").update({ display_name: trimmed }).eq("id", user.id);
+    setSavingName(false);
+    if (error) return toast.error(error.message);
+    toast.success("Username updated ✓");
+    setIsEditingName(false);
+    refetchProfile();
+  };
 
   const saveUpi = async () => {
     if (!user) return;
@@ -53,6 +78,8 @@ function ProfilePage() {
     setSavingUpi(false);
     if (error) return toast.error(error.message);
     toast.success("UPI ID saved ✓");
+    setIsEditingUpi(false);
+    refetchProfile();
   };
 
   const { data: myAssignments } = useQuery({
@@ -67,6 +94,22 @@ function ProfilePage() {
         const { data } = await supabase.from("bids").select("*, assignment:assignments(*)").eq("writer_id", user.id).order("created_at", { ascending: false });
         return (data ?? []).map((b) => b.assignment).filter(Boolean);
       }
+    },
+  });
+
+  const { data: myPayments } = useQuery({
+    queryKey: ["my-payments", user?.id, profile?.role],
+    enabled: !!profile,
+    queryFn: async () => {
+      if (!user || !profile) return [];
+      const col = profile.role === "student" ? "student_id" : "writer_id";
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*, assignment:assignments(title)")
+        .eq(col, user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -95,9 +138,35 @@ function ProfilePage() {
           <div className="flex items-center gap-4">
             <Avatar name={profile.display_name} size={64} />
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 truncate">
-                {profile.display_name}
-              </h1>
+              {isEditingName ? (
+                <div className="flex items-center gap-2 max-w-xs">
+                  <Input
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    maxLength={50}
+                    className="h-8 text-sm px-2 py-1 rounded-lg border-zinc-200 dark:border-zinc-800"
+                  />
+                  <Button size="sm" onClick={saveName} disabled={savingName} className="h-8 px-3 text-xs rounded-lg shrink-0">
+                    {savingName ? "…" : "Save"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setIsEditingName(false); setTempName(profile.display_name); }} className="h-8 px-2.5 text-xs rounded-lg shrink-0">
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 truncate">
+                    {profile.display_name}
+                  </h1>
+                  <button
+                    onClick={() => { setIsEditingName(true); setTempName(profile.display_name); }}
+                    className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition p-1"
+                    title="Edit username"
+                  >
+                    <PenLine className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
               <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                 {profile.role === "student" ? <GraduationCap className="h-3.5 w-3.5" /> : <PenLine className="h-3.5 w-3.5" />}
                 <span className="capitalize">{profile.role}</span>
@@ -146,9 +215,9 @@ function ProfilePage() {
               </div>
             </div>
             <button onClick={toggleTheme}
-              className={`relative h-6 rounded-full transition-colors duration-300 ${theme === "dark" ? "bg-zinc-900 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-700"}`}
-              style={{ width: 44 }} aria-label="Toggle theme">
-              <span className={`absolute top-1 h-4 w-4 rounded-full bg-white dark:bg-zinc-900 shadow transition-transform duration-300 ${theme === "dark" ? "translate-x-5" : "translate-x-1"}`} />
+              className={`relative h-6 w-11 rounded-full transition-colors ${theme === "dark" ? "bg-zinc-900 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-700"}`}
+              aria-label="Toggle theme">
+              <span className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white dark:bg-zinc-900 shadow transition-transform duration-300 ${theme === "dark" ? "translate-x-5" : "translate-x-0"}`} />
             </button>
           </div>
         </div>
@@ -170,47 +239,126 @@ function ProfilePage() {
             {profile.upi_id && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
-            {profile.role === "writer" ? "Required to receive your 85% payout." : "Optional — for refunds only."}
+            {profile.role === "writer" ? "Required to receive your 85% payout." : "Used for secure escrow refunds."}
           </p>
-          {profile.upi_id && (
-            <div className="mb-3 flex items-center gap-2 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl px-3 py-2">
-              <span className="text-sm font-mono text-zinc-700 dark:text-zinc-300 flex-1">{showUpi ? profile.upi_id : maskedUpi}</span>
-              <button onClick={() => setShowUpi(!showUpi)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition">
-                {showUpi ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+          
+          {profile.upi_id && !isEditingUpi ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl px-3 py-2 border border-zinc-100 dark:border-zinc-800">
+                <span className="text-sm font-mono text-zinc-700 dark:text-zinc-300 flex-1">{showUpi ? profile.upi_id : maskedUpi}</span>
+                <button onClick={() => setShowUpi(!showUpi)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition p-1">
+                  {showUpi ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => { setIsEditingUpi(true); setUpiId(profile.upi_id ?? ""); }}
+                className="w-full h-9 text-xs rounded-xl border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300"
+              >
+                Edit UPI ID
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input placeholder="yourname@okhdfcbank" value={upiId} onChange={(e) => setUpiId(e.target.value)}
+                  maxLength={100} autoCapitalize="none" autoCorrect="off"
+                  className="rounded-xl border-zinc-200 dark:border-zinc-800" />
+                <Button onClick={saveUpi} disabled={savingUpi}
+                  className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200 rounded-xl shrink-0">
+                  {savingUpi ? "…" : "Save"}
+                </Button>
+              </div>
+              {profile.upi_id && (
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setIsEditingUpi(false)}
+                  className="w-full h-8 text-xs text-muted-foreground hover:text-zinc-900 rounded-xl"
+                >
+                  Cancel
+                </Button>
+              )}
             </div>
           )}
-          <div className="flex gap-2">
-            <Input placeholder="yourname@okhdfcbank" value={upiId} onChange={(e) => setUpiId(e.target.value)}
-              maxLength={100} autoCapitalize="none" autoCorrect="off"
-              className="rounded-xl border-zinc-200 dark:border-zinc-800" />
-            <Button onClick={saveUpi} disabled={savingUpi}
-              className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200 rounded-xl shrink-0">
-              {savingUpi ? "…" : "Save"}
-            </Button>
-          </div>
         </div>
 
-        {/* Assignments */}
-        <div>
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
-            {profile.role === "student" ? "My assignments" : "My bids"}
-          </h2>
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-zinc-200 dark:border-zinc-800 mt-2">
+          <button
+            onClick={() => setActiveTab("assignments")}
+            className={`flex-1 py-3 text-sm font-semibold border-b-2 transition ${
+              activeTab === "assignments"
+                ? "border-primary text-zinc-900 dark:text-zinc-50"
+                : "border-transparent text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            {profile.role === "student" ? "My Assignments" : "My Bids"}
+          </button>
+          <button
+            onClick={() => setActiveTab("payments")}
+            className={`flex-1 py-3 text-sm font-semibold border-b-2 transition ${
+              activeTab === "payments"
+                ? "border-primary text-zinc-900 dark:text-zinc-50"
+                : "border-transparent text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            Payment History
+          </button>
+        </div>
+
+        {activeTab === "assignments" ? (
+          <div>
+            <div className="space-y-3">
+              {!myAssignments?.length ? (
+                <div className="rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-12 text-center dark:border-zinc-800 dark:bg-zinc-900/20">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-50 text-xl dark:bg-zinc-900">📭</div>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-3">Nothing here yet</p>
+                </div>
+              ) : myAssignments.map((a) => a && (
+                <AssignmentCard key={a.id} a={{
+                  id: a.id, title: a.title, subject: a.subject,
+                  budget_min: a.budget_min, budget_max: a.budget_max, deadline: a.deadline,
+                  bid_count: (a as any).bids?.[0]?.count,
+                }} />
+              ))}
+            </div>
+          </div>
+        ) : (
           <div className="space-y-3">
-            {!myAssignments?.length ? (
+            {!myPayments?.length ? (
               <div className="rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-12 text-center dark:border-zinc-800 dark:bg-zinc-900/20">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-50 text-xl dark:bg-zinc-900">📭</div>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-3">Nothing here yet</p>
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-50 text-xl dark:bg-zinc-900">💳</div>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-3">No payments history yet</p>
               </div>
-            ) : myAssignments.map((a) => a && (
-              <AssignmentCard key={a.id} a={{
-                id: a.id, title: a.title, subject: a.subject,
-                budget_min: a.budget_min, budget_max: a.budget_max, deadline: a.deadline,
-                bid_count: (a as any).bids?.[0]?.count,
-              }} />
+            ) : myPayments.map((p) => (
+              <div key={p.id} className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{p.assignment?.title || "Assignment Payment"}</h4>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                    {new Date(p.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 justify-between sm:justify-end">
+                  <div className="text-right">
+                    <p className="font-extrabold text-base text-zinc-900 dark:text-zinc-50">
+                      ₹{profile.role === "student" ? p.amount : p.writer_payout}
+                    </p>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                      {profile.role === "student" ? "Paid" : "Received"}
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
+                    p.status === "file_delivered" ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/40" :
+                    p.status === "payment_received" ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/40" :
+                    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/40"
+                  }`}>
+                    {p.status.replace(/_/g, " ")}
+                  </span>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
+        )}
 
         {/* Sign out */}
         <Button variant="outline" onClick={signOut}

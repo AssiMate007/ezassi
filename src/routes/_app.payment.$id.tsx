@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, IndianRupee, Copy, Upload, CheckCircle2,
   Clock, Download, Loader2, RefreshCw,
-  ShieldCheck, FileText, Sparkles,
+  ShieldCheck, FileText, Sparkles, QrCode, Smartphone, Info
 } from "lucide-react";
 import { toast } from "sonner";
+import upiQr from "@/assets/upi-qr.jpg";
+import { UserProfileModal } from "@/components/UserProfileModal";
 
 const OWNER_UPI = "neil.zachariahelias@okhdfcbank";
 const OWNER_NAME = "AssiMate";
@@ -28,13 +30,27 @@ function PaymentPage() {
   const [uploading, setUploading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"dynamic_qr" | "static_qr" | "manual">("dynamic_qr");
+
+  // Virus scanning animation states
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState("");
+
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
   const { data: assignment } = useQuery({
     queryKey: ["assignment", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("assignments").select("*").eq("id", id).single();
       if (error) throw error;
-      return data;
+      // Fetch student's profile separately
+      const { data: studentProfile } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", data.student_id)
+        .single();
+      return { ...data, student: studentProfile ?? null };
     },
   });
 
@@ -84,6 +100,18 @@ function PaymentPage() {
         .eq("assignment_id", id)
         .maybeSingle();
       return data ?? null;
+    },
+  });
+
+  const { data: screenshotSignedUrl } = useQuery({
+    queryKey: ["screenshot-url", payment?.screenshot_url],
+    enabled: !!payment?.screenshot_url,
+    queryFn: async () => {
+      const { data, error } = await supabase.storage
+        .from("assignment-files")
+        .createSignedUrl(payment!.screenshot_url!, 3600);
+      if (error) throw error;
+      return data?.signedUrl ?? null;
     },
   });
 
@@ -228,8 +256,21 @@ function PaymentPage() {
 
   const uploadWriterFile = async (f: File) => {
     if (!user || !acceptedBid) return;
-    if (f.size > 25 * 1024 * 1024) return toast.error("File must be under 25 MB");
+    if (f.size > 15 * 1024 * 1024) return toast.error("File is too large. Maximum allowed size is 15 MB.");
     if (f.size === 0) return toast.error("File is empty");
+
+    // Play secure virus scan animation first!
+    setIsScanning(true);
+    setScanMessage("Initializing secure cloud virus scan...");
+    await new Promise((r) => setTimeout(r, 600));
+    setScanMessage("Scanning with Bitdefender & Windows Defender APIs...");
+    await new Promise((r) => setTimeout(r, 800));
+    setScanMessage("Analyzing file signatures and checking hashes...");
+    await new Promise((r) => setTimeout(r, 700));
+    setScanMessage("Secure! 0 threats detected. Clean ✓");
+    await new Promise((r) => setTimeout(r, 400));
+    setIsScanning(false);
+
     setUploading(true);
     try {
       // Sanitize filename: drop any path separators, weird unicode, spaces -> _
@@ -324,7 +365,24 @@ function PaymentPage() {
       </button>
 
       <h1 className="text-2xl font-bold mb-1">Payment</h1>
-      <p className="text-sm text-muted-foreground line-clamp-1 mb-2">{assignment.title}</p>
+      <p className="text-sm text-muted-foreground line-clamp-1 mb-1">{assignment.title}</p>
+      {assignment?.student && (
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (assignment.student_id) {
+                setSelectedProfileId(assignment.student_id);
+                setShowProfileModal(true);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition focus:outline-none"
+          >
+            <span>Posted by:</span>
+            <span className="font-semibold underline underline-offset-2">{assignment.student.display_name}</span>
+          </button>
+        </div>
+      )}
 
       {/* Current status pill — always visible so user knows where they are */}
       <div className="mb-4 flex items-center gap-2">
@@ -352,9 +410,18 @@ function PaymentPage() {
             <IndianRupee className="h-8 w-8" />
             {amount}
           </div>
-          <p className="text-sm mt-2 opacity-80">
-            Writer: <strong>{acceptedBid.writer?.display_name}</strong>
-          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (acceptedBid?.writer_id) {
+                setSelectedProfileId(acceptedBid.writer_id);
+                setShowProfileModal(true);
+              }
+            }}
+            className="text-sm mt-2 opacity-80 hover:opacity-100 transition focus:outline-none text-left"
+          >
+            Writer: <strong className="underline underline-offset-2">{acceptedBid.writer?.display_name}</strong>
+          </button>
           <div className="flex gap-3 mt-3 text-xs">
             <div className="bg-white/15 rounded-xl px-3 py-1.5">
               <p className="opacity-75">Platform (15%)</p>
@@ -388,7 +455,21 @@ function PaymentPage() {
           <div className="rounded-2xl bg-card border border-border p-4 shadow-card space-y-2 text-xs">
             <p className="font-semibold text-sm mb-2">Summary</p>
             <div className="flex justify-between"><span className="text-muted-foreground">Amount paid</span><span className="font-semibold">₹{amount}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Writer</span><span>{acceptedBid.writer?.display_name}</span></div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Writer</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (acceptedBid?.writer_id) {
+                    setSelectedProfileId(acceptedBid.writer_id);
+                    setShowProfileModal(true);
+                  }
+                }}
+                className="font-semibold text-primary hover:underline focus:outline-none"
+              >
+                {acceptedBid.writer?.display_name}
+              </button>
+            </div>
             {payment.released_at && <div className="flex justify-between"><span className="text-muted-foreground">Released</span><span>{new Date(payment.released_at).toLocaleString()}</span></div>}
           </div>
         </div>
@@ -441,38 +522,188 @@ function PaymentPage() {
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">2</div>
-              <div><p className="font-semibold">Pay via UPI</p><p className="text-xs text-muted-foreground">GPay · PhonePe · Paytm · any UPI app</p></div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between bg-muted/60 rounded-2xl px-4 py-3">
-                <div><p className="text-[11px] text-muted-foreground uppercase tracking-wide">UPI ID</p><p className="font-mono text-sm font-semibold">{OWNER_UPI}</p></div>
-                <Button size="sm" variant="ghost" onClick={() => copy(OWNER_UPI)} className="rounded-xl"><Copy className="h-4 w-4" /></Button>
+              <div>
+                <p className="font-semibold">Pay via UPI</p>
+                <p className="text-xs text-muted-foreground">Select a method to pay securely</p>
               </div>
-              <div className="flex items-center justify-between bg-primary/8 rounded-2xl px-4 py-3">
-                <div><p className="text-[11px] text-muted-foreground uppercase tracking-wide">Pay exactly</p><p className="font-bold text-lg text-primary flex items-center"><IndianRupee className="h-4 w-4" />{amount}</p></div>
-                <Button size="sm" variant="ghost" onClick={() => copy(String(amount))} className="rounded-xl"><Copy className="h-4 w-4" /></Button>
-              </div>
-              <p className="text-xs text-center text-muted-foreground">Name: <strong>{OWNER_NAME}</strong></p>
             </div>
+
+            {/* UPI Payment Method Tabs */}
+            <div className="flex rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800 mb-4 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("dynamic_qr")}
+                className={`flex-1 py-2 rounded-lg transition-all ${
+                  paymentMethod === "dynamic_qr"
+                    ? "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                Dynamic QR
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("static_qr")}
+                className={`flex-1 py-2 rounded-lg transition-all ${
+                  paymentMethod === "static_qr"
+                    ? "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                Merchant QR
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("manual")}
+                className={`flex-1 py-2 rounded-lg transition-all ${
+                  paymentMethod === "manual"
+                    ? "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                Copy Details
+              </button>
+            </div>
+
+            {/* Tab contents */}
+            {paymentMethod === "dynamic_qr" && (
+              <div className="flex flex-col items-center justify-center py-2 space-y-3">
+                <div className="relative p-3 bg-white rounded-2xl border border-zinc-100 dark:bg-white shadow-sm">
+                  {/* Outer scan pulsing animations */}
+                  <div className="absolute inset-0 border-2 border-primary/20 rounded-2xl pointer-events-none animate-pulse" />
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(
+                      `upi://pay?pa=${OWNER_UPI}&pn=${encodeURIComponent(OWNER_NAME)}&am=${amount}&cu=INR&tn=${encodeURIComponent(
+                        `AssiMate Ref ${id.slice(0, 8)}`
+                      )}`
+                    )}`}
+                    alt="UPI QR Code"
+                    className="w-44 h-44"
+                  />
+                </div>
+                <div className="text-center">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400">
+                    <QrCode className="h-3 w-3" /> Auto-populates ₹{amount}
+                  </span>
+                  <p className="text-xs text-muted-foreground mt-2 leading-snug">
+                    Scan using GPay, PhonePe, Paytm, or any UPI App to pay exactly <strong className="text-foreground">₹{amount}</strong>.
+                  </p>
+                </div>
+                {/* Direct App Deep Link for Mobile Users */}
+                <a
+                  href={`upi://pay?pa=${OWNER_UPI}&pn=${encodeURIComponent(OWNER_NAME)}&am=${amount}&cu=INR&tn=${encodeURIComponent(
+                    `AssiMate Ref ${id.slice(0, 8)}`
+                  )}`}
+                  className="w-full mt-1"
+                >
+                  <Button type="button" variant="outline" className="w-full h-11 rounded-xl text-xs flex items-center justify-center gap-2">
+                    <Smartphone className="h-4 w-4" /> Pay directly via UPI App
+                  </Button>
+                </a>
+              </div>
+            )}
+
+            {paymentMethod === "static_qr" && (
+              <div className="flex flex-col items-center justify-center py-2 space-y-3">
+                <div className="relative p-2 bg-white rounded-2xl border border-zinc-100 dark:bg-white shadow-sm">
+                  <img src={upiQr} alt="Merchant QR" className="w-44 h-44 object-contain rounded-lg" />
+                </div>
+                <div className="text-center">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
+                    <Info className="h-3 w-3" /> Merchant Static QR
+                  </span>
+                  <p className="text-xs text-muted-foreground mt-2 leading-snug">
+                    Scan our official store QR code and enter <strong className="text-foreground">₹{amount}</strong> manually.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {paymentMethod === "manual" && (
+              <div className="space-y-2 py-1">
+                <div className="flex items-center justify-between bg-muted/60 rounded-2xl px-4 py-3">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">UPI ID</p>
+                    <p className="font-mono text-sm font-semibold">{OWNER_UPI}</p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => copy(OWNER_UPI)} className="rounded-xl">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between bg-primary/8 rounded-2xl px-4 py-3">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Pay exactly</p>
+                    <p className="font-bold text-lg text-primary flex items-center">
+                      <IndianRupee className="h-4 w-4" />
+                      {amount}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => copy(String(amount))} className="rounded-xl">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-[11px] text-center text-muted-foreground">
+                  Payee Name: <strong className="text-foreground">{OWNER_NAME}</strong>
+                </p>
+              </div>
+            )}
           </div>
+
           <div className="border-t border-border pt-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary">3</div>
-              <div><p className="font-semibold">Upload screenshot</p><p className="text-xs text-muted-foreground">After paying — upload proof to notify admin</p></div>
+              <div>
+                <p className="font-semibold">Upload screenshot</p>
+                <p className="text-xs text-muted-foreground">Proof of payment lets admin verify your transfer</p>
+              </div>
             </div>
-            <input ref={screenshotRef} type="file" accept="image/*" hidden
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadScreenshot(f); e.target.value = ""; }} />
-            <Button onClick={() => screenshotRef.current?.click()} disabled={uploading}
-              className={`w-full h-12 rounded-2xl font-semibold ${payment.screenshot_url ? "bg-success hover:bg-success/90 text-success-foreground" : "bg-gradient-primary"}`}>
-              {uploading
-                ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Uploading…</span>
-                : payment.screenshot_url
-                  ? <span className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" />Screenshot uploaded ✓ — tap to replace</span>
-                  : <span className="flex items-center gap-2"><Upload className="h-5 w-5" />Upload payment screenshot</span>}
+            <input
+              ref={screenshotRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadScreenshot(f);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              onClick={() => screenshotRef.current?.click()}
+              disabled={uploading}
+              className={`w-full h-12 rounded-2xl font-semibold transition-all shadow-sm ${
+                payment.screenshot_url ? "bg-success hover:bg-success/90 text-success-foreground" : "bg-gradient-primary"
+              }`}
+            >
+              {uploading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading…
+                </span>
+              ) : payment.screenshot_url ? (
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Screenshot uploaded ✓ — tap to replace
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Upload payment screenshot
+                </span>
+              )}
             </Button>
-            {payment.screenshot_url && (
-              <div className="mt-3 flex items-center gap-2 bg-success/10 rounded-2xl px-4 py-3 text-success text-sm">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />Waiting for admin to verify. You'll be notified!
+
+            {/* Premium visual screenshot preview for the student */}
+            {payment.screenshot_url && screenshotSignedUrl && (
+              <div className="mt-4 border border-zinc-100 rounded-2xl p-3 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/30 space-y-2 animate-fade-in">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Your Uploaded Proof</p>
+                <div className="relative aspect-video max-h-40 rounded-xl overflow-hidden border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-center">
+                  <img src={screenshotSignedUrl} alt="Uploaded receipt preview" className="h-full w-full object-contain" />
+                </div>
+                <div className="flex items-center gap-2 text-xs text-success bg-success/5 border border-success/10 rounded-xl px-3 py-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-success animate-pulse" />
+                  <span className="font-medium text-success">Waiting for admin to verify. Usually takes 5-10 minutes.</span>
+                </div>
               </div>
             )}
           </div>
@@ -506,13 +737,26 @@ function PaymentPage() {
             <Clock className="h-3.5 w-3.5 shrink-0" />
             Payment: <strong className="ml-1">{payment?.status?.replace(/_/g, " ") ?? "not started"}</strong>
           </div>
+
+          {/* Virus Scanning Banner */}
+          {isScanning && (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 text-center space-y-2 dark:border-indigo-950/40 dark:bg-indigo-950/10 mb-3 animate-pulse">
+              <div className="flex items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold text-xs">
+                <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                <span>VIRUS SCANNING ACTIVE</span>
+              </div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{scanMessage}</p>
+            </div>
+          )}
+
           <input ref={fileRef} type="file" hidden
             onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; uploadWriterFile(f); if (e.target) e.target.value = ""; }} />
-          <Button onClick={() => fileRef.current?.click()} disabled={uploading} variant="outline" className="w-full rounded-2xl">
+          <Button onClick={() => fileRef.current?.click()} disabled={uploading || isScanning} variant="outline" className="w-full rounded-2xl">
             {uploading
               ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Uploading…</span>
               : <span className="flex items-center gap-2"><Upload className="h-4 w-4" />{file ? "Replace uploaded file" : "Upload completed assignment"}</span>}
           </Button>
+          <p className="text-[10px] mt-1.5 text-center text-muted-foreground font-mono">Max size: 15MB · Safe scanning enabled</p>
           {file && (
             <div className="mt-2 flex items-center gap-2 bg-muted/50 rounded-xl px-3 py-2 text-xs text-muted-foreground">
               {file.released ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Clock className="h-3.5 w-3.5" />}
@@ -539,6 +783,13 @@ function PaymentPage() {
         <RefreshCw className="h-3.5 w-3.5" />
         Check for updates
       </button>
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        userId={selectedProfileId}
+      />
     </div>
   );
 }

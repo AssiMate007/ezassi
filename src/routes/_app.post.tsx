@@ -32,15 +32,38 @@ function PostPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (budgetMax < budgetMin) return toast.error("Max budget must be ≥ min budget");
+
+    const trimmedTitle = title.trim();
+    const trimmedDesc = description.trim();
+
+    if (trimmedTitle.length < 5) {
+      return toast.error("Title must be at least 5 characters long");
+    }
+    if (trimmedDesc.length < 15) {
+      return toast.error("Description must be at least 15 characters long");
+    }
+    if (trimmedDesc.length > 10000) {
+      return toast.error("Description cannot exceed 10000 characters");
+    }
+
+    if (budgetMin < 10) {
+      return toast.error("Minimum budget must be at least ₹10");
+    }
+    if (budgetMax > 10000000) {
+      return toast.error("Maximum budget cannot exceed ₹10,000,000");
+    }
+    if (budgetMax < budgetMin) {
+      return toast.error("Max budget must be ≥ min budget");
+    }
+
     if (!deadline) return toast.error("Please set a deadline");
     if (new Date(deadline) < new Date()) return toast.error("Deadline must be in the future");
 
     setLoading(true);
     const { data, error } = await supabase.from("assignments").insert({
       student_id: user.id,
-      title,
-      description,
+      title: trimmedTitle,
+      description: trimmedDesc,
       subject,
       budget_min: budgetMin,
       budget_max: budgetMax,
