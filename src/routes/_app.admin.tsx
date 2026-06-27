@@ -612,13 +612,12 @@ function AdminPage() {
         )}
 
         <Tabs defaultValue="review">
-          <TabsList className="grid grid-cols-5 w-full rounded-xl border border-zinc-200 bg-white p-1 mb-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <TabsList className="grid grid-cols-4 w-full rounded-xl border border-zinc-200 bg-white p-1 mb-5 dark:border-zinc-800 dark:bg-zinc-900">
             <TabsTrigger value="overview"    className="rounded-lg text-[11px] data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">Overview</TabsTrigger>
             <TabsTrigger value="review"      className="rounded-lg text-[11px] relative data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">
               Review
               {actionableCount>0&&<span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-500 text-[8px] font-bold flex items-center justify-center text-white">{actionableCount}</span>}
             </TabsTrigger>
-            <TabsTrigger value="assignments" className="rounded-lg text-[11px] data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">Jobs</TabsTrigger>
             <TabsTrigger value="users"       className="rounded-lg text-[11px] data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">Users</TabsTrigger>
             <TabsTrigger value="tools"       className="rounded-lg text-[11px] data-[state=active]:bg-zinc-900 data-[state=active]:text-white dark:data-[state=active]:bg-zinc-100 dark:data-[state=active]:text-zinc-950">Tools</TabsTrigger>
           </TabsList>
@@ -897,60 +896,6 @@ function AdminPage() {
           </TabsContent>
 
           {/* ══ USERS ══ */}
-          {/* ══ ASSIGNMENTS (Jobs) ══ */}
-          <TabsContent value="assignments" className="mt-4">
-            <h2 className="font-bold text-base mb-3">All Assignments ({allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled"&&!dismissedAssignments.has(a.id)).length??0})</h2>
-            <div className="space-y-3">
-              {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled"&&!dismissedAssignments.has(a.id)).map(a=>(
-                <div key={a.id} className="rounded-2xl bg-white border border-zinc-200 dark:border-zinc-800 dark:bg-zinc-900 p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate text-zinc-900 dark:text-zinc-100">{a.title}</p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">{a.subject} · by {a.student?.display_name}</p>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap border ${
-                      a.status==="open"?"bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/40":
-                      a.status==="in_progress"?"bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/40":
-                      "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
-                    }`}>{a.status.replace("_"," ")}</span>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mb-3 leading-relaxed">{a.description}</p>
-                  <div className="flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500 mb-3">
-                    <span>₹{a.budget_min}–{a.budget_max}</span>
-                    <span>Due {new Date(a.deadline).toLocaleDateString()}</span>
-                    <span>{(a.bids as any)?.[0]?.count??0} bids</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link to="/assignment/$id" params={{id:a.id}} className="flex-1">
-                      <Button size="sm" variant="outline" className="w-full rounded-xl h-8 text-xs border-zinc-200 dark:border-zinc-800">
-                        <Eye className="h-3.5 w-3.5 mr-1"/>View & manage
-                      </Button>
-                    </Link>
-                    {a.status!=="cancelled"&&a.status!=="completed"&&(
-                      <>
-                        <Button size="sm" variant="outline" className="rounded-xl h-8 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900/40 dark:text-emerald-400"
-                          onClick={()=>approveAssignment(a)}>
-                          <ThumbsUp className="h-3.5 w-3.5"/>
-                        </Button>
-                        <Button size="sm" variant="ghost" className="rounded-xl h-8 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                          onClick={()=>removeAssignment(a)}>
-                          <XCircle className="h-3.5 w-3.5"/>
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {allAssignments?.filter(a=>a.status!=="completed"&&a.status!=="cancelled"&&!dismissedAssignments.has(a.id)).length===0&&(
-                <div className="text-center py-12 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/20">
-                  <div className="text-4xl mb-2">✅</div>
-                  <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">All clear!</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">No active assignments</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
           <TabsContent value="users" className="mt-4">
             <div className="relative mb-3">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
