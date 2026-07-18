@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AdminAuthRouteImport } from './routes/admin-auth'
 import { Route as LegalRouteImport } from './routes/_legal'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
@@ -37,11 +36,6 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminAuthRoute = AdminAuthRouteImport.update({
-  id: '/admin-auth',
-  path: '/admin-auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LegalRoute = LegalRouteImport.update({
@@ -125,7 +119,6 @@ const AppChatIdPeerRoute = AppChatIdPeerRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin-auth': typeof AdminAuthRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AppAdminRoute
@@ -144,7 +137,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin-auth': typeof AdminAuthRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AppAdminRoute
@@ -166,7 +158,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_legal': typeof LegalRouteWithChildren
-  '/admin-auth': typeof AdminAuthRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_app/admin': typeof AppAdminRoute
@@ -187,7 +178,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin-auth'
     | '/auth'
     | '/reset-password'
     | '/admin'
@@ -206,7 +196,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin-auth'
     | '/auth'
     | '/reset-password'
     | '/admin'
@@ -227,7 +216,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/_legal'
-    | '/admin-auth'
     | '/auth'
     | '/reset-password'
     | '/_app/admin'
@@ -249,7 +237,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LegalRoute: typeof LegalRouteWithChildren
-  AdminAuthRoute: typeof AdminAuthRoute
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
 }
@@ -268,13 +255,6 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin-auth': {
-      id: '/admin-auth'
-      path: '/admin-auth'
-      fullPath: '/admin-auth'
-      preLoaderRoute: typeof AdminAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_legal': {
@@ -438,7 +418,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LegalRoute: LegalRouteWithChildren,
-  AdminAuthRoute: AdminAuthRoute,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
 }

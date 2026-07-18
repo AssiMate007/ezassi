@@ -50,9 +50,22 @@ function ProfilePage() {
   // Active Tab
   const [activeTab, setActiveTab] = useState<"assignments" | "payments">("assignments");
 
+  const { data: savedUpi, refetch: refetchUpi } = useQuery({
+    queryKey: ["my-upi", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_payout_info")
+        .select("upi_id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data?.upi_id ?? null;
+    },
+  });
+
   useEffect(() => {
-    if (profile?.upi_id !== undefined) setUpiId(profile.upi_id ?? "");
-  }, [profile]);
+    setUpiId(savedUpi ?? "");
+  }, [savedUpi]);
 
   const saveName = async () => {
     if (!user) return;
@@ -74,12 +87,15 @@ function ProfilePage() {
     if (trimmed && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed))
       return toast.error("Enter a valid UPI ID e.g. name@okhdfcbank");
     setSavingUpi(true);
-    const { error } = await supabase.from("profiles").update({ upi_id: trimmed || null } as never).eq("id", user.id);
+    const { error } = await supabase.from("user_payout_info").upsert(
+      { user_id: user.id, upi_id: trimmed || null },
+      { onConflict: "user_id" },
+    );
     setSavingUpi(false);
     if (error) return toast.error(error.message);
     toast.success("UPI ID saved ✓");
     setIsEditingUpi(false);
-    refetchProfile();
+    refetchUpi();
   };
 
   const { data: myAssignments } = useQuery({
@@ -126,8 +142,8 @@ function ProfilePage() {
     </div>
   );
 
-  const maskedUpi = profile.upi_id
-    ? profile.upi_id.replace(/^(.{3}).*(@.*)$/, (_, a, b) => `${a}${"•".repeat(6)}${b}`)
+  const maskedUpi = savedUpi
+    ? savedUpi.replace(/^(.{3}).*(@.*)$/, (_: string, a: string, b: string) => `${a}${"•".repeat(6)}${b}`)
     : null;
 
   return (
