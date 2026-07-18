@@ -252,23 +252,23 @@ function ProfilePage() {
               <Wallet className="h-4 w-4 text-white dark:text-zinc-900" />
             </div>
             <h3 className="font-semibold text-sm flex-1 text-zinc-900 dark:text-zinc-100">UPI for payouts</h3>
-            {profile.upi_id && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+            {savedUpi && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
             {profile.role === "writer" ? "Required to receive your 85% payout." : "Used for secure escrow refunds."}
           </p>
           
-          {profile.upi_id && !isEditingUpi ? (
+          {savedUpi && !isEditingUpi ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl px-3 py-2 border border-zinc-100 dark:border-zinc-800">
-                <span className="text-sm font-mono text-zinc-700 dark:text-zinc-300 flex-1">{showUpi ? profile.upi_id : maskedUpi}</span>
+                <span className="text-sm font-mono text-zinc-700 dark:text-zinc-300 flex-1">{showUpi ? savedUpi : maskedUpi}</span>
                 <button onClick={() => setShowUpi(!showUpi)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition p-1">
                   {showUpi ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
               <Button 
                 variant="outline" 
-                onClick={() => { setIsEditingUpi(true); setUpiId(profile.upi_id ?? ""); }}
+                onClick={() => { setIsEditingUpi(true); setUpiId(savedUpi ?? ""); }}
                 className="w-full h-9 text-xs rounded-xl border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300"
               >
                 Edit UPI ID
@@ -285,7 +285,7 @@ function ProfilePage() {
                   {savingUpi ? "…" : "Save"}
                 </Button>
               </div>
-              {profile.upi_id && (
+              {savedUpi && (
                 <Button 
                   variant="ghost" 
                   onClick={() => setIsEditingUpi(false)}
