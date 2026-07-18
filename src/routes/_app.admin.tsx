@@ -44,6 +44,7 @@ interface FileRow {
 interface ProfileRow {
   id: string; display_name: string; role: string; created_at: string;
   rating: number; jobs_completed: number; upi_id: string | null; is_banned?: boolean;
+  avatar_url?: string | null; bio?: string | null;
 }
 interface AssignmentRow {
   id: string; student_id: string; title: string; description: string; subject: string;
@@ -226,14 +227,24 @@ function AdminPage() {
       ])];
       const { data: profileRows } = await supabase
         .from("profiles")
-        .select("id, display_name, upi_id")
+        .select("id, display_name")
         .in("id", uids);
+      const { data: upiRows } = await supabase
+        .from("user_payout_info")
+        .select("user_id, upi_id")
+        .in("user_id", uids);
       const pmap = new Map((profileRows ?? []).map((p: any) => [p.id, p]));
+      const umap = new Map((upiRows ?? []).map((u: any) => [u.user_id, u.upi_id as string | null]));
+      const enrich = (uid: string) => {
+        const prof = pmap.get(uid);
+        if (!prof) return null;
+        return { display_name: prof.display_name, upi_id: umap.get(uid) ?? null };
+      };
 
       return data.map((p: any) => ({
         ...p,
-        student: pmap.get(p.student_id) ?? null,
-        writer:  pmap.get(p.writer_id)  ?? null,
+        student: enrich(p.student_id),
+        writer:  enrich(p.writer_id),
       })) as unknown as PaymentRow[];
     },
   });
@@ -252,7 +263,9 @@ function AdminPage() {
     queryKey: ["admin-profiles"], enabled: !!user, staleTime: 0,
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-      return (data ?? []) as ProfileRow[];
+      const { data: upiRows } = await supabase.from("user_payout_info").select("user_id, upi_id");
+      const umap = new Map((upiRows ?? []).map((u: any) => [u.user_id, u.upi_id as string | null]));
+      return (data ?? []).map((p: any) => ({ ...p, upi_id: umap.get(p.id) ?? null })) as ProfileRow[];
     },
   });
 
@@ -337,7 +350,7 @@ function AdminPage() {
     <div className="p-8 text-center">
       <ShieldAlert className="h-12 w-12 text-muted-foreground mx-auto mb-3"/>
       <p className="font-semibold">Admin access only</p>
-      <Link to="/admin-auth" className="inline-flex items-center gap-2 mt-4 bg-gradient-primary text-primary-foreground px-5 py-2.5 rounded-2xl font-medium text-sm">Go to Admin Login</Link>
+      <Link to="/auth" className="inline-flex items-center gap-2 mt-4 bg-gradient-primary text-primary-foreground px-5 py-2.5 rounded-2xl font-medium text-sm">Go to Sign In</Link>
     </div>
   );
 

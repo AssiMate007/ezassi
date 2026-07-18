@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AdminAuthRouteImport } from './routes/admin-auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as LegalRouteImport } from './routes/_legal'
@@ -29,11 +28,6 @@ import { Route as AppPaymentIdRouteImport } from './routes/_app.payment.$id'
 import { Route as AppAssignmentIdRouteImport } from './routes/_app.assignment.$id'
 import { Route as AppChatIdPeerRouteImport } from './routes/_app.chat.$id.$peer'
 
-const AdminAuthRoute = AdminAuthRouteImport.update({
-  id: '/admin-auth',
-  path: '/admin-auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -125,8 +119,7 @@ const AppChatIdPeerRoute = AppChatIdPeerRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin-auth': typeof AdminAuthRoute
-    '/auth': typeof AuthRoute
+  '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AppAdminRoute
   '/chats': typeof AppChatsRoute
@@ -144,8 +137,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin-auth': typeof AdminAuthRoute
-    '/auth': typeof AuthRoute
+  '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AppAdminRoute
   '/chats': typeof AppChatsRoute
@@ -166,8 +158,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_legal': typeof LegalRouteWithChildren
-  '/admin-auth': typeof AdminAuthRoute
-    '/auth': typeof AuthRoute
+  '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_app/admin': typeof AppAdminRoute
   '/_app/chats': typeof AppChatsRoute
@@ -243,7 +234,6 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AdminAuthRoute: typeof AdminAuthRoute
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LegalRoute: typeof LegalRouteWithChildren
@@ -429,7 +419,6 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LegalRoute: LegalRouteWithChildren,
   AuthRoute: AuthRoute,
-  AdminAuthRoute: AdminAuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport

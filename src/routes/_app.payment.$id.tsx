@@ -68,10 +68,21 @@ function PaymentPage() {
       // Fetch writer profile separately (no named FK)
       const { data: writerProfile } = await supabase
         .from("profiles")
-        .select("display_name, upi_id")
+        .select("display_name")
         .eq("id", bid.writer_id)
         .single();
-      return { ...bid, writer: writerProfile ?? null };
+      // UPI lives in a separate, tightly-restricted table
+      const { data: payoutRow } = await supabase
+        .from("user_payout_info")
+        .select("upi_id")
+        .eq("user_id", bid.writer_id)
+        .maybeSingle();
+      return {
+        ...bid,
+        writer: writerProfile
+          ? { ...writerProfile, upi_id: payoutRow?.upi_id ?? null }
+          : null,
+      };
     },
   });
 

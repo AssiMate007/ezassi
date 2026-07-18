@@ -61,6 +61,21 @@ export function UserProfileModal({ isOpen, onClose, userId }: UserProfileModalPr
     },
   });
 
+  // UPI is fetched separately and is only readable by owner/admin/paying student
+  // via RLS on user_payout_info. Non-authorized callers simply get null.
+  const { data: targetUpi } = useQuery({
+    queryKey: ["public-profile-upi", userId, isAdmin],
+    enabled: isOpen && !!userId && isAdmin,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_payout_info")
+        .select("upi_id")
+        .eq("user_id", userId!)
+        .maybeSingle();
+      return data?.upi_id ?? null;
+    },
+  });
+
   if (!isOpen || !userId) return null;
 
   return (
@@ -153,10 +168,10 @@ export function UserProfileModal({ isOpen, onClose, userId }: UserProfileModalPr
                   <Wallet className="h-3.5 w-3.5" />
                   <span>Admin Panel: UPI Details</span>
                 </div>
-                {targetProfile.upi_id ? (
+                {targetUpi ? (
                   <div className="flex items-center justify-between rounded-xl bg-indigo-50/50 p-3 border border-indigo-100 dark:bg-indigo-950/20 dark:border-indigo-900/40">
                     <span className="font-mono text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                      {targetProfile.upi_id}
+                      {targetUpi}
                     </span>
                     <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                   </div>

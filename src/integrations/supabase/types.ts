@@ -315,10 +315,10 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          is_banned: boolean
           jobs_completed: number
           rating: number
           role: Database["public"]["Enums"]["user_role"]
-          upi_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -326,10 +326,10 @@ export type Database = {
           created_at?: string
           display_name: string
           id: string
+          is_banned?: boolean
           jobs_completed?: number
           rating?: number
           role?: Database["public"]["Enums"]["user_role"]
-          upi_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -337,10 +337,28 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          is_banned?: boolean
           jobs_completed?: number
           rating?: number
           role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: []
+      }
+      user_payout_info: {
+        Row: {
+          updated_at: string
+          upi_id: string | null
+          user_id: string
+        }
+        Insert: {
+          updated_at?: string
           upi_id?: string | null
+          user_id: string
+        }
+        Update: {
+          updated_at?: string
+          upi_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -377,7 +395,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
       purge_expired_assignments: { Args: never; Returns: undefined }
+      submit_writer_rating: {
+        Args: { p_user_rating: number; p_writer_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"
