@@ -19,46 +19,56 @@ export function BottomNav() {
   // Hide on chat detail page
   if (path.startsWith("/chat/")) return null;
 
-  const items  = isAdmin ? [...baseItems, adminItem] : baseItems;
-  const cols   = items.length === 5 ? "grid-cols-5" : "grid-cols-4";
+  const items = isAdmin ? [...baseItems, adminItem] : baseItems;
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 glass border-t border-border/60">
-      <div className={cn("mx-auto max-w-md grid", cols)}>
-        {items.map(({ to, icon: Icon, label }) => {
-          const active =
-            path === to ||
-            (to !== "/feed" && path.startsWith(to + "/"));
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={cn(
-                "flex flex-col items-center justify-center gap-0.5 py-3 text-[11px] font-medium transition-all duration-200",
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <div className={cn(
-                "rounded-xl p-2 transition-all duration-200",
-                active
-                  ? "bg-gradient-primary text-primary-foreground shadow-soft scale-110"
-                  : "hover:bg-muted",
-                // highlight Admin icon even when not active
-                label === "Admin" && !active
-                  ? "text-primary"
-                  : "",
-              )}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <span className={cn(
-                active ? "font-semibold" : "",
-                label === "Admin" ? "text-primary font-semibold" : "",
-              )}>
-                {label}
-              </span>
-            </Link>
-          );
-        })}
+    <nav className="fixed bottom-0 inset-x-0 z-40 pointer-events-none">
+      <div className="mx-auto max-w-md px-4 pb-3 pointer-events-auto">
+        <div className="glass rounded-3xl border border-border/60 shadow-glow px-2 py-1.5">
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+          >
+            {items.map(({ to, icon: Icon, label }) => {
+              const active =
+                path === to ||
+                (to !== "/feed" && path.startsWith(to + "/"));
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  className={cn(
+                    "relative flex flex-col items-center justify-center gap-0.5 py-2 rounded-2xl transition-all duration-300",
+                    active
+                      ? "text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {active && (
+                    <span className="absolute inset-0 rounded-2xl bg-gradient-primary shadow-soft" />
+                  )}
+                  <div className="relative flex flex-col items-center gap-0.5">
+                    <Icon
+                      className={cn(
+                        "h-5 w-5 transition-transform duration-300",
+                        active && "scale-110",
+                      )}
+                      strokeWidth={active ? 2.4 : 2}
+                    />
+                    <span
+                      className={cn(
+                        "text-[10px] leading-none tracking-wide",
+                        active ? "font-semibold" : "font-medium",
+                      )}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
       <div className="h-[env(safe-area-inset-bottom)]" />
     </nav>
