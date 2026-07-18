@@ -10,7 +10,6 @@ export interface Profile {
   bio: string | null;
   rating: number;
   jobs_completed: number;
-  upi_id?: string | null;
   is_banned?: boolean;
 }
 

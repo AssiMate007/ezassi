@@ -44,6 +44,7 @@ interface FileRow {
 interface ProfileRow {
   id: string; display_name: string; role: string; created_at: string;
   rating: number; jobs_completed: number; upi_id: string | null; is_banned?: boolean;
+  avatar_url?: string | null; bio?: string | null;
 }
 interface AssignmentRow {
   id: string; student_id: string; title: string; description: string; subject: string;
