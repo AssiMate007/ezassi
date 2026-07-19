@@ -66,10 +66,10 @@ function ChatsPage() {
       <div className="bg-gradient-hero px-4 pt-10 pb-7 text-primary-foreground relative overflow-hidden">
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
         <div className="relative">
-          <h1 className="text-2xl font-bold flex items-center gap-2 text-white dark:text-black">
+          <h1 className="text-2xl font-bold flex items-center gap-2 text-white">
             <MessageCircle className="h-6 w-6" />Messages
           </h1>
-          <p className="text-sm text-white/75 dark:text-black/75 mt-0.5">
+          <p className="text-sm text-white/75 mt-0.5">
             {threads?.length ?? 0} conversation{(threads?.length ?? 0) !== 1 ? "s" : ""}
           </p>
         </div>
