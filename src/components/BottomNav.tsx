@@ -45,20 +45,21 @@ export function BottomNav() {
                   )}
                 >
                   {active && (
-                    <span className="absolute inset-0 rounded-2xl bg-gradient-primary shadow-soft" />
+                    <span className="absolute inset-0 rounded-2xl bg-black shadow-soft" />
                   )}
                   <div className="relative flex flex-col items-center gap-0.5">
                     <Icon
                       className={cn(
                         "h-5 w-5 transition-transform duration-300",
                         active && "scale-110",
+                        active ? "text-white" : "text-current",
                       )}
                       strokeWidth={active ? 2.4 : 2}
                     />
                     <span
                       className={cn(
                         "text-[10px] leading-none tracking-wide",
-                        active ? "font-semibold" : "font-medium",
+                        active ? "font-semibold text-white" : "font-medium",
                       )}
                     >
                       {label}
