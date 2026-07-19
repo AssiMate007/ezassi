@@ -40,25 +40,26 @@ export function BottomNav() {
                   className={cn(
                     "relative flex flex-col items-center justify-center gap-0.5 py-2 rounded-2xl transition-all duration-300",
                     active
-                      ? "text-primary-foreground"
+                      ? "text-white"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {active && (
-                    <span className="absolute inset-0 rounded-2xl bg-gradient-primary shadow-soft" />
+                    <span className="absolute inset-0 rounded-2xl bg-black shadow-soft" />
                   )}
                   <div className="relative flex flex-col items-center gap-0.5">
                     <Icon
                       className={cn(
                         "h-5 w-5 transition-transform duration-300",
                         active && "scale-110",
+                        active ? "text-white" : "text-current",
                       )}
                       strokeWidth={active ? 2.4 : 2}
                     />
                     <span
                       className={cn(
                         "text-[10px] leading-none tracking-wide",
-                        active ? "font-semibold" : "font-medium",
+                        active ? "font-semibold text-white" : "font-medium",
                       )}
                     >
                       {label}
